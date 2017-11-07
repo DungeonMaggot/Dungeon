@@ -1,0 +1,95 @@
+; Level 1
+
+; reserved letters: 'S' = start, 'X' = eXit, '+' = walkable, ';' = comment
+
+FIELD 0:
+    DOOR type=secret_door, wall=north id=0
+    ITEM type=lurker_boots, location=floor
+    ITEM type=shuriken, location=floor
+    PROP type=statue, wall=south, orientation=north
+
+FIELD 1:
+    TRIGGER type=hidden, wall=south id=0
+
+FIELD 2:
+    DOOR type=metal_gate, wall=south id=1
+    TRIGGER type=torch, wall=west, id=1
+    MESSAGE msg="Choose your fate\nPerish in this cell or\n pick up the torch", type=long, wall=east
+
+FIELD 3:
+    ITEM type=torch, wall=north
+
+FIELD 4:
+    DOOR type=metal_gate_two_chains, wall=west
+
+FIELD 5:
+    ITEM type=peasant_tunic, floor
+    ITEM type=peasant_breeches, floor
+
+FIELD 6:
+    ITEM type=mace, wall=east
+
+FIELD 7:
+    ITEM type=torch, wall=east
+    TRIGGER type=lever, wall=west id=2
+
+FIELD 8:
+    DOOR type=metal_gate, wall=north, id=2
+
+FIELD 9:
+    ITEM type=stone, floor
+
+FIELD A:
+    TRIGGER type=pressure_plate, id=3
+
+FIELD B:
+    DOOR type=metal_gate, wall=west, id=3
+    ITEM type=torch, wall=north
+
+FIELD C:
+    ITEM type=brass_key, wall=west
+
+FIELD D:
+    ITEM type=torch, wall=south
+    ITEM type=stone, floor
+
+FIELD E:
+    DOOR type=wooden_gate_keyhole, wall=west, key=brass_key
+
+FIELD F:
+    MESSAGE msg="Loose rock", type=short, wall=north
+
+FIELD G:
+    TRIGGER type=hidden, wall=east, id=4
+    ITEM type=torch, wall=south
+
+FIELD H:
+    DOOR type=secret_door, wall=south, id=4
+    ITEM type=iron_key, wall=north
+
+FIELD I:
+    DOOR type=metal_gate, wall=south, id=5
+    TRIGGER type=keyhole, wall=east, key=iron_key, id=5
+
+FIELD J:
+    ITEM type=stone, floor
+
+FIELD K:
+    ITEM type=torch, wall=west
+
+FIELD L:
+    ENEMY type=snail, orientation=south
+
+FIELD M:
+    ITEM type=leather_boots, floor
+    ITEM type=leather_pants, floor
+    ITEM type=knife, floor
+
+FIELD N:
+    TRIGGER type=lever, wall=east, id=6
+
+FIELD M:
+    DOOR type=metal_gate, wall=north, id=6
+
+FIELD P:
+    ITEM type=throwing_knife, wall=south
