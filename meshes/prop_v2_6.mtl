@@ -1,10 +1,16 @@
 # Blender MTL File: 'props.blend'
 # Material Count: 1
 
-newmtl None
-Ns 0
-Ka 0.000000 0.000000 0.000000
-Kd 0.8 0.8 0.8
-Ks 0.8 0.8 0.8
-d 1
-illum 2
+newmtl prop_v2_5_material
+Ns 68.627451
+Ka 1.000000 1.000000 1.000000
+Kd 0.645031 0.645031 0.645031
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 0.000000
+illum 1
+map_Kd C:\000_Semesterarbeit\Dungeon\textures\prop_v2_5_tex.png
+map_Ks C:\\000_Semesterarbeit\\Dungeon\\textures\\prop_v2_5_tex.png
+map_Ns C:\\000_Semesterarbeit\\Dungeon\\textures\\prop_v2_5_tex.png
+map_d C:\\000_Semesterarbeit\\Dungeon\\textures\\prop_v2_5_tex.png
