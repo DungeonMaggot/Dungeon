@@ -24,4 +24,5 @@ char *Level0Map =
 "  ^ ++X  ^   ++          #"
 "        ++               #";
 
+
 #endif // LEVEL0_MAP_H
