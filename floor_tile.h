@@ -15,5 +15,4 @@ public:
     }
 };
 
-
 #endif // FLOOR_TILE_H
