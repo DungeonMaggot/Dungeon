@@ -2,16 +2,18 @@
 #define FLOOR_TILE_H
 
 #include "drawable.h"
-#include "simpleplane.h"
-#include "color.h"
+#include "trianglemesh.h"
+//#include "simpleplane.h"
+//#include "color.h"
 
 class FloorTile : public Drawable
 {
 public:
-    FloorTile(): Drawable(new SimplePlane(1.f))
+    // TODO(andreas): Relative path!
+    FloorTile(): Drawable(new TriangleMesh("meshes/floor_v2.obj"))
     {
-        Color *c = this->getProperty<Color>();
-        c->setValue(0.5, 0.5, 0.5, 1.0);
+        /*Color *c = this->getProperty<Color>();
+        c->setValue(0.5, 0.5, 0.5, 1.0);*/
     }
 };
 

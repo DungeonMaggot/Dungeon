@@ -13,6 +13,9 @@
 
 #include "ui_dockwidget.h"
 
+#define TILE_RADIUS 1
+#define TILE_LENGTH TILE_RADIUS*2
+
 bool TileHasNeighbor(char direction)
 {
     // TODO(andreas): Tile utilities
@@ -72,41 +75,42 @@ Node *InitDungeonScene()
             {
                 // base tile
                 Transformation *tile_transform = new Transformation();
-                tile_transform->translate(p.x, 0.0, p.y); // TODO(andreas): Make a x, z 2D vector?
+                tile_transform->translate(p.x*TILE_LENGTH, 0.0, p.y*TILE_LENGTH); // TODO(andreas): Make a x, z 2D vector?
                 Node *tile_node = new Node(tile_transform);
                 root_node->addChild(tile_node);
 
                 // floor
                 Transformation *floor_transform = new Transformation();
-                floor_transform->rotate(90.0, 1.0, 0.0, 0.0); // make plane parallel to the ground
+                //floor_transform->rotate(90.0, 1.0, 0.0, 0.0); // make plane parallel to the ground
 
                 Node *floor_node = new Node(floor_transform);
                 tile_node->addChild(floor_node);
                 floor_node->addChild(new Node(floor_tile));
 
                 // walls
-                bool wall_east = false; // left
-                bool wall_west = false; // right
-                bool wall_north = false; // up
+                bool wall_west = false; // left
+                bool wall_east = false; // right
                 bool wall_south = false; // down
-                // Note: top-left (NE) corner of the world is at 0,0
+                bool wall_north = false; // up
+
+                // Note: top-left (NW) corner of the world is at 0,0
 
                 if(p.x == 0)
                 {
-                    wall_east = true;
+                    wall_west = true;
                 }
                 else if(*(c - 1) == ' ')
                 {
-                     wall_east = true;
+                     wall_west = true;
                 }
 
                 if(p.x == (LEVEL_0_WIDTH - 1))
                 {
-                    wall_west = true;
+                    wall_east = true;
                 }
                 else if(*(c + 1) == ' ')
                 {
-                    wall_west = true;
+                    wall_east = true;
                 }
 
                 if(p.y == 0)
@@ -130,11 +134,11 @@ Node *InitDungeonScene()
                 if(wall_east)
                 {
                     Transformation *wall_transform = new Transformation();
-                    wall_transform->rotate(90.0, 0.0, 1.0, 0.0); // change from horizontal to vertical (top-down view)
-                    wall_transform->translate(0.0, 0.0, -0.5);
+                    wall_transform->rotate(-90.0, 0.0, 1.0, 0.0);
+                    //wall_transform->translate(0.0, 0.0, -1.0);
 
                     // TODO(andreas): Remove the following line once assets are online:
-                    wall_transform->translate(0.0, 0.5, 0.0); // move up a bit
+                   // wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
 
                     Node *wall_node = new Node(wall_transform);
                     tile_node->addChild(wall_node);
@@ -144,11 +148,11 @@ Node *InitDungeonScene()
                 if(wall_west)
                 {
                     Transformation *wall_transform = new Transformation();
-                    wall_transform->rotate(90.0, 0.0, 1.0, 0.0); // change from horizontal to vertical (top-down view)
-                    wall_transform->translate(0.0, 0.0, 0.5);
+                    wall_transform->rotate(90.0, 0.0, 1.0, 0.0);
+                    //wall_transform->translate(0.0, 0.0, 1.0);
 
                     // TODO(andreas): Remove the following line once assets are online:
-                    wall_transform->translate(0.0, 0.5, 0.0); // move up a bit
+                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
 
                     Node *wall_node = new Node(wall_transform);
                     tile_node->addChild(wall_node);
@@ -158,10 +162,10 @@ Node *InitDungeonScene()
                 if(wall_north)
                 {
                     Transformation *wall_transform = new Transformation();
-                    wall_transform->translate(0.0, 0.0, -0.5);
+                    //wall_transform->translate(0.0, 0.0, -1.0);
 
                     // TODO(andreas): Remove the following line once assets are online:
-                    wall_transform->translate(0.0, 0.5, 0.0); // move up a bit
+                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
 
                     Node *wall_node = new Node(wall_transform);
                     tile_node->addChild(wall_node);
@@ -171,10 +175,11 @@ Node *InitDungeonScene()
                 if(wall_south)
                 {
                     Transformation *wall_transform = new Transformation();
-                    wall_transform->translate(0.0, 0.0, 0.5);
+                    wall_transform->rotate(180.0, 0.0, 1.0, 0.0);
+                    //wall_transform->translate(0.0, 0.0, 1.0);
 
                     // TODO(andreas): Remove the following line once assets are online:
-                    wall_transform->translate(0.0, 0.5, 0.0); // move up a bit
+                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
 
                     Node *wall_node = new Node(wall_transform);
                     tile_node->addChild(wall_node);
