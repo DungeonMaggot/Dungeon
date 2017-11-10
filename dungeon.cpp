@@ -5,6 +5,10 @@
 #include "transformation.h"
 #include "keyboardtransformation.h"
 #include "controllablecamera.h"
+
+// dungeon includes
+#include "dungeon.h"
+#include "input.h"
 #include "floor_tile.h"
 #include "wall.h"
 #include "planet.h"
@@ -13,8 +17,10 @@
 
 #include "ui_dockwidget.h"
 
-#define TILE_RADIUS 1
-#define TILE_LENGTH TILE_RADIUS*2
+#include <QWidget>
+static KeyboardGrabber *KeyInput;
+
+static game_state GameState;
 
 bool TileHasNeighbor(char direction)
 {
@@ -47,12 +53,6 @@ void SceneManager::initScenes()
     QObject::connect(Window::getInstance(), SIGNAL(sigFPS(int)), lDock->lcdNumber, SLOT(display(int)));
 }
 
-typedef struct v2i
-{
-    int x;
-    int y;
-} TilePos;
-
 Node *InitDungeonScene()
 {
     // drawables
@@ -61,6 +61,13 @@ Node *InitDungeonScene()
     Wall *WallSouthMesh = new Wall({0.65, 0.65, 0.65, 1.0});
     Wall *WallEastMesh  = new Wall({0.6, 0.6, 0.6, 1.0});
     Wall *WallWestMesh  = new Wall({0.55, 0.55, 0.55, 1.0});
+
+    // input breaker/listener
+#if 0 // TODO(andreas): None of these work in a good way, find solution.
+    KeyInput = new KeyboardGrabber;
+    KeyInput->grabKeyboard();
+    InputListener *Input = new InputListener(GameState.Buttons);
+#endif
 
     // scene graph root
     Transformation *root_transform = new Transformation();

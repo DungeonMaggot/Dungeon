@@ -13,7 +13,9 @@ SOURCES += \
 HEADERS  += planet.h \
     level0_map.h \
     floor_tile.h \
-    wall.h
+    wall.h \
+    input.h \
+    dungeon.h
 
 FORMS += \
     dockwidget.ui
