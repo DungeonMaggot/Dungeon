@@ -28,6 +28,8 @@ enum player_actions
     PA_MoveForward,
     PA_RotateLeft,
     PA_RotateRight,
+    PA_Use,
+    PA_Attack,
 
     // must be last element
     PA_NumActions
@@ -37,7 +39,8 @@ struct game_state
 {
     TilePos PlayerPos;
     Transformation PlayerTransform;
-    game_button Buttons[PA_NumActions];
+    game_button *NewButtons;
+    game_button *OldButtons;
 };
 
 #endif // DUNGEON_H

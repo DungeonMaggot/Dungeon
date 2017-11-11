@@ -17,10 +17,8 @@
 
 #include "ui_dockwidget.h"
 
-#include <QWidget>
-static KeyboardGrabber *KeyInput;
-
 static game_state GameState;
+static game_button *ButtonState[2];
 
 bool TileHasNeighbor(char direction)
 {
@@ -55,19 +53,19 @@ void SceneManager::initScenes()
 
 Node *InitDungeonScene()
 {
+    // game init
+    ButtonState[0] = new game_button[PA_NumActions]{};
+    ButtonState[1] = new game_button[PA_NumActions]{};
+    GameState.NewButtons = ButtonState[0];
+    GameState.OldButtons = ButtonState[1];
+    InputListener *Input = new InputListener(&GameState);
+
     // drawables
     FloorTile *floor_tile = new FloorTile();
     Wall *WallNorthMesh = new Wall({0.7, 0.7, 0.7, 1.0});
     Wall *WallSouthMesh = new Wall({0.65, 0.65, 0.65, 1.0});
     Wall *WallEastMesh  = new Wall({0.6, 0.6, 0.6, 1.0});
     Wall *WallWestMesh  = new Wall({0.55, 0.55, 0.55, 1.0});
-
-    // input breaker/listener
-#if 0 // TODO(andreas): None of these work in a good way, find solution.
-    KeyInput = new KeyboardGrabber;
-    KeyInput->grabKeyboard();
-    InputListener *Input = new InputListener(GameState.Buttons);
-#endif
 
     // scene graph root
     Transformation *root_transform = new Transformation();

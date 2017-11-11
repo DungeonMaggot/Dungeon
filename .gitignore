@@ -4,6 +4,10 @@
 # Blender Backups
 *.blend[0-9]
 
+# Executable files
+*.exe
+*.dll
+
 # OS generated files
 .DS_Store
 .DS_Store?
