@@ -4,6 +4,9 @@
 # Blender Backups
 *.blend[0-9]
 
+# Material files
+*.mtl
+
 # Executable files
 *.exe
 *.dll
