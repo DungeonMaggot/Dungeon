@@ -1,6 +1,7 @@
 #ifndef LEVEL0_MAP_H
 #define LEVEL0_MAP_H
 
+#if 1
 #define LEVEL_0_WIDTH 25
 #define LEVEL_0_HEIGHT 21
 char *Level0Map =
@@ -25,6 +26,14 @@ char *Level0Map =
 " ++ +    + ++++          "
 "  ^ ++X  ^   ++          "
 "        ++               ";
+#else
+#define LEVEL_0_WIDTH 4
+#define LEVEL_0_HEIGHT 3
+char *Level0Map =
+"++  "
+" ++ "
+"++++";
+#endif
 
 
 #endif // LEVEL0_MAP_H

@@ -12,6 +12,24 @@ typedef struct v2i
     int y;
 } TilePos;
 
+enum wall_directions
+{
+    WALL_WEST = 0,
+    WALL_EAST,
+    WALL_SOUTH,
+    WALL_NORTH,
+
+    NUM_WALL_DIRECTIONS
+};
+
+enum relative_column_position
+{
+    COL_LEFT = 0,
+    COL_RIGHT,
+
+    NUM_RELATIVE_COLUMN_POSITIONS
+};
+
 struct game_button
 {
     bool IsPressed;

@@ -5,13 +5,13 @@
 #include "transformation.h"
 #include "keyboardtransformation.h"
 #include "controllablecamera.h"
+#include "shadermanager.h"
+#include "texture.h"
+#include "trianglemesh.h"
 
 // dungeon includes
 #include "dungeon.h"
 #include "input.h"
-#include "floor_tile.h"
-#include "wall.h"
-#include "planet.h"
 #include "color.h"
 #include "level0_map.h"
 
@@ -23,6 +23,84 @@ static game_button *ButtonState[2];
 bool TileHasNeighbor(char direction)
 {
     // TODO(andreas): Tile utilities
+}
+
+
+
+bool PlaceColumnAtPos(int X, int Y,
+                      wall_directions WallDirection,
+                      relative_column_position ColumnPosition,
+                      bool *ColumnMap,
+                      int ColumnMapWidth, int ColumnMapHeight)
+{
+    bool Result = false;
+
+    if(    (X >= 0) && (X < (ColumnMapWidth  - 1))
+        && (Y >= 0) && (Y < (ColumnMapHeight - 1))
+        && (WallDirection  < NUM_WALL_DIRECTIONS)
+        && (ColumnPosition < NUM_RELATIVE_COLUMN_POSITIONS) )
+    {
+        bool *Column = ColumnMap + Y*ColumnMapHeight + X;
+
+        // There are four possible offset values (a to d),
+        // depending on the column's corner position:
+        //      N
+        //    L   R
+        //  R a---b L
+        // W  |   |  E
+        //  L c---d R
+        //    R   L
+        //      S
+        enum offset_types
+        {
+            OFFSET_NW = 0, // a
+            OFFSET_NE,     // b
+            OFFSET_SE,     // c
+            OFFSET_SW,     // d
+
+            NUM_OFFSETS
+        } OffsetType;
+        int OffsetValues[NUM_OFFSETS] = {};
+        OffsetValues[OFFSET_NW] = 0;
+        OffsetValues[OFFSET_NE] = 1;
+        OffsetValues[OFFSET_SE] = ColumnMapWidth;
+        OffsetValues[OFFSET_SW] = ColumnMapWidth + 1;
+        switch(WallDirection)
+        {
+            case WALL_WEST:
+            {
+                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_SE : OFFSET_NW;
+            } break;
+
+            case WALL_EAST:
+            {
+                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_NE : OFFSET_SW;
+            } break;
+
+            case WALL_SOUTH:
+            {
+                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_SW : OFFSET_SE;
+            } break;
+
+            case WALL_NORTH:
+            {
+                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_NW : OFFSET_NE;
+            } break;
+
+            default:
+            {} break; // TODO(andreas): Handle error.
+        }
+
+        Column += OffsetValues[OffsetType];
+
+        if(*Column == false)
+        {
+            *Column = true;
+            Result = true;
+        }
+    }
+
+    return Result;
 }
 
 Node *InitDungeonScene();
@@ -53,147 +131,204 @@ void SceneManager::initScenes()
 
 Node *InitDungeonScene()
 {
+    //
     // game init
+    //
     ButtonState[0] = new game_button[PA_NumActions]{};
     ButtonState[1] = new game_button[PA_NumActions]{};
     GameState.NewButtons = ButtonState[0];
     GameState.OldButtons = ButtonState[1];
     InputListener *Input = new InputListener(&GameState);
 
+    bool *Level0ColumnMap = new bool[(LEVEL_0_WIDTH + 1)*(LEVEL_0_HEIGHT + 1)]{};
+
+    //
+    // load geometry
+    //
+    Geometry *FloorGeometry = new TriangleMesh("meshes/floor_v2.obj");
+    Geometry *CeilingGeometry = new TriangleMesh("meshes/roof_v2.obj");
+    Geometry *WallGeometry = new TriangleMesh("meshes/wall_v2.obj");
+    Geometry *ColumnGeometry = new TriangleMesh("meshes/column_v2.obj");
+
+    //
+    // shaders
+    //
+    Shader *FlatShader = ShaderManager::getShader("shaders/texture.vert", "shaders/texture.frag");
+
+    //
     // drawables
-    FloorTile *floor_tile = new FloorTile();
-    Wall *WallNorthMesh = new Wall({0.7, 0.7, 0.7, 1.0});
-    Wall *WallSouthMesh = new Wall({0.65, 0.65, 0.65, 1.0});
-    Wall *WallEastMesh  = new Wall({0.6, 0.6, 0.6, 1.0});
-    Wall *WallWestMesh  = new Wall({0.55, 0.55, 0.55, 1.0});
+    //
+    Drawable *FloorModel = new Drawable(FloorGeometry);
+    Drawable *CeilingModel = new Drawable(CeilingGeometry);
+    Drawable *WallModel = new Drawable(WallGeometry);
+    Drawable *ColumnModel = new Drawable(ColumnGeometry);
+
+    //
+    // assign textures
+    //
+    Texture *t = 0;
+
+    // floor
+    t = FloorModel->getProperty<Texture>();
+    t->loadPicture("textures/floor_v2_tex.png");
+
+    // ceiling
+    t = CeilingModel->getProperty<Texture>();
+    t->loadPicture("textures/roof_v2_tex.png");
+
+    // wall
+    t = WallModel->getProperty<Texture>();
+    t->loadPicture("textures/wall_v2_tex.png");
+
+    // column
+    t = ColumnModel->getProperty<Texture>();
+    t->loadPicture("textures/column_v2_tex.png");
+
+    //
+    // assign shaders
+    //
+
+    FloorModel->setShader(FlatShader);
+    CeilingModel->setShader(FlatShader);
+    WallModel->setShader(FlatShader);
+    ColumnModel->setShader(FlatShader);
 
     // scene graph root
-    Transformation *root_transform = new Transformation();
-    Node *root_node = new Node(root_transform);
+    Transformation *RootTransform = new Transformation();
+    Node *RootNode = new Node(RootTransform);
 
     // load tilemap
     {
+        // a tile consists of:
+        // - a node
+        // - a transform
+        // - floor geometry (using the tile's base transform)
+        // - 0 to 3 walls   (using their own transforms)
+
         TilePos p = {0, 0};
         for(char *c = Level0Map; *c != '\0'; ++c)
         {
             if(*c != ' ') // not empty
             {
                 // base tile
-                Transformation *tile_transform = new Transformation();
-                tile_transform->translate(p.x*TILE_LENGTH, 0.0, p.y*TILE_LENGTH); // TODO(andreas): Make a x, z 2D vector?
-                Node *tile_node = new Node(tile_transform);
-                root_node->addChild(tile_node);
+                Transformation *TileTransform = new Transformation();
+                TileTransform->translate(p.x*TILE_LENGTH, 0.0, p.y*TILE_LENGTH); // TODO(andreas): Make a x, z 2D vector?
+                Node *TileNode = new Node(TileTransform);
+                RootNode->addChild(TileNode);
 
                 // floor
-                Transformation *floor_transform = new Transformation();
-                //floor_transform->rotate(90.0, 1.0, 0.0, 0.0); // make plane parallel to the ground
+                Node *FloorNode = new Node(FloorModel);
+                TileNode->addChild(FloorNode);
 
-                Node *floor_node = new Node(floor_transform);
-                tile_node->addChild(floor_node);
-                floor_node->addChild(new Node(floor_tile));
+                // ceiling
+                Node *CeilingNode = new Node(CeilingModel);
+                TileNode->addChild(CeilingNode);
 
                 // walls
-                bool wall_west = false; // left
-                bool wall_east = false; // right
-                bool wall_south = false; // down
-                bool wall_north = false; // up
+
+
+                bool WallInfo[NUM_WALL_DIRECTIONS] = {};
 
                 // Note: top-left (NW) corner of the world is at 0,0
 
                 if(p.x == 0)
                 {
-                    wall_west = true;
+                    WallInfo[WALL_WEST] = true;
                 }
                 else if(*(c - 1) == ' ')
                 {
-                     wall_west = true;
+                    WallInfo[WALL_WEST] = true;
                 }
 
                 if(p.x == (LEVEL_0_WIDTH - 1))
                 {
-                    wall_east = true;
+                    WallInfo[WALL_EAST] = true;
                 }
                 else if(*(c + 1) == ' ')
                 {
-                    wall_east = true;
+                    WallInfo[WALL_EAST] = true;
                 }
 
                 if(p.y == 0)
                 {
-                    wall_north = true;
+                    WallInfo[WALL_NORTH] = true;
                 }
                 else if(*(c - LEVEL_0_WIDTH) == ' ')
                 {
-                     wall_north = true;
+                     WallInfo[WALL_NORTH] = true;
                 }
 
                 if(p.y == (LEVEL_0_HEIGHT - 1))
                 {
-                    wall_south = true;
+                    WallInfo[WALL_SOUTH] = true;
                 }
                 else if(*(c + LEVEL_0_WIDTH) == ' ')
                 {
-                     wall_south = true;
+                    WallInfo[WALL_SOUTH] = true;
                 }
 
-                if(wall_east)
+                // process all four possible walls
+                for (int WallIndex = 0; WallIndex < NUM_WALL_DIRECTIONS; ++WallIndex)
                 {
-                    Transformation *wall_transform = new Transformation();
-                    wall_transform->rotate(-90.0, 0.0, 1.0, 0.0);
-                    //wall_transform->translate(0.0, 0.0, -1.0);
+                    if(WallInfo[WallIndex] == true)
+                    {
+                        // add a wall
+                        Transformation *WallTransform = new Transformation();
 
-                    // TODO(andreas): Remove the following line once assets are online:
-                   // wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
+                        switch(WallIndex)
+                        {
+                            case WALL_WEST:
+                            { WallTransform->rotate(90.0, 0.0, 1.0, 0.0); } break;
 
-                    Node *wall_node = new Node(wall_transform);
-                    tile_node->addChild(wall_node);
-                    wall_node->addChild(new Node(WallEastMesh));
-                }
+                            case WALL_EAST:
+                            { WallTransform->rotate(-90.0, 0.0, 1.0, 0.0); } break;
 
-                if(wall_west)
-                {
-                    Transformation *wall_transform = new Transformation();
-                    wall_transform->rotate(90.0, 0.0, 1.0, 0.0);
-                    //wall_transform->translate(0.0, 0.0, 1.0);
+                            case WALL_SOUTH:
+                            { WallTransform->rotate(180.0, 0.0, 1.0, 0.0); } break;
 
-                    // TODO(andreas): Remove the following line once assets are online:
-                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
+                            case WALL_NORTH:
+                            {} break; // no rotation necessary
 
-                    Node *wall_node = new Node(wall_transform);
-                    tile_node->addChild(wall_node);
-                    wall_node->addChild(new Node(WallWestMesh));
-                }
+                            default:
+                            {} break; // TODO(andreas): Handle error.
+                        }
 
-                if(wall_north)
-                {
-                    Transformation *wall_transform = new Transformation();
-                    //wall_transform->translate(0.0, 0.0, -1.0);
+                        Node *WallNode = new Node(WallTransform);
+                        TileNode->addChild(WallNode);
+                        WallNode->addChild(new Node(WallModel));
 
-                    // TODO(andreas): Remove the following line once assets are online:
-                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
+                        // add columns to the wall, if necessary
+                        bool MustPlaceColumn[NUM_RELATIVE_COLUMN_POSITIONS] = {};
+                        for(int ColumnIndex = 0; ColumnIndex < NUM_RELATIVE_COLUMN_POSITIONS; ++ColumnIndex)
+                        {
+                            MustPlaceColumn[ColumnIndex] =
+                                PlaceColumnAtPos(p.x, p.y,
+                                                 (wall_directions)WallIndex, (relative_column_position) ColumnIndex,
+                                                 Level0ColumnMap, (LEVEL_0_WIDTH + 1), (LEVEL_0_HEIGHT + 1));
+                            // TODO(andreas): Better function name, function is checking slot and potentially marking
+                            //                it as in use.
 
-                    Node *wall_node = new Node(wall_transform);
-                    tile_node->addChild(wall_node);
-                    wall_node->addChild(new Node(WallNorthMesh));
-                }
+                            // place column geometry
+                            if(MustPlaceColumn[ColumnIndex])
+                            {
+                                Transformation *ColumnTransform = new Transformation();
+                                Node *ColumnNode = new Node(ColumnTransform);
+                                WallNode->addChild(ColumnNode);
 
-                if(wall_south)
-                {
-                    Transformation *wall_transform = new Transformation();
-                    wall_transform->rotate(180.0, 0.0, 1.0, 0.0);
-                    //wall_transform->translate(0.0, 0.0, 1.0);
+                                if(ColumnIndex == COL_LEFT)
+                                {
+                                    ColumnTransform->rotate(90.0, 0.0, 1.0, 0.0);
+                                }
 
-                    // TODO(andreas): Remove the following line once assets are online:
-                    //wall_transform->translate(0.0, 1.0, 0.0); // move up a bit
-
-                    Node *wall_node = new Node(wall_transform);
-                    tile_node->addChild(wall_node);
-                    wall_node->addChild(new Node(WallSouthMesh));
+                                ColumnNode->addChild(new Node(ColumnModel));
+                            }
+                        }
+                    }
                 }
             }
             else
             {
-                // empty
+                // This position is empty: no floor, walls etc. needed.
             }
 
             if(p.x < (LEVEL_0_WIDTH - 1))
@@ -208,5 +343,5 @@ Node *InitDungeonScene()
         }
     }
 
-    return(root_node);
+    return(RootNode);
 }

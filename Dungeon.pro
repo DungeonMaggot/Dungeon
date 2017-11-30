@@ -10,10 +10,8 @@ TARGET = Dungeon
 SOURCES += \
     dungeon.cpp
 
-HEADERS  += planet.h \
+HEADERS  += \
     level0_map.h \
-    floor_tile.h \
-    wall.h \
     input.h \
     dungeon.h
 
