@@ -162,6 +162,8 @@ Node *InitDungeonScene()
     // light sources
     //
     PointLight *LightSource = new PointLight;
+    //marcos test Values
+    //LightSource->setDiffuse(0.7, 0.5, 0.5); // RGB
     LightSource->setDiffuse(0.8, 0.8, 0.8); // RGB
     LightSource->setAmbient(0.6, 0.6, 0.6); // RGB
     LightSource->setSpecular(0.6, 0.6, 0.6); // RGB
