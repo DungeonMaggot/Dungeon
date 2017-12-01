@@ -20,4 +20,9 @@ FORMS += \
 
 DISTFILES += \
     level0_map.txt \
-    level0_entities.txt
+    level0_entities.txt \
+    shaders/texture.frag \
+    shaders/texture.vert
+
+RESOURCES += \
+    shaders.qrc

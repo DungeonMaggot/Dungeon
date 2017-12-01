@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>shaders/PhongVL.vert</file>
+        <file>shaders/common.vert.inc</file>
+        <file>shaders/commonlight.vert.inc</file>
+        <file>shaders/commonlightmatdefs.inc</file>
+        <file>shaders/commonlightmodels.inc</file>
+        <file>shaders/LambertVL.vert</file>
+        <file>shaders/PassThrough.frag</file>
+		<file>shaders/phong_textured.vert</file>
+		<file>shaders/phong_textured.frag</file>
+    </qresource>
+</RCC>

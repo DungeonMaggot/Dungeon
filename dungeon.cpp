@@ -8,11 +8,15 @@
 #include "shadermanager.h"
 #include "texture.h"
 #include "trianglemesh.h"
+#include "pointlight.h"
+
+// temp includes
+#include "simplesphere.h"
+#include "color.h"
 
 // dungeon includes
 #include "dungeon.h"
 #include "input.h"
-#include "color.h"
 #include "level0_map.h"
 
 #include "ui_dockwidget.h"
@@ -151,9 +155,20 @@ Node *InitDungeonScene()
     Geometry *ColumnGeometry = new TriangleMesh("meshes/column_v2.obj");
 
     //
+    // light sources
+    //
+    PointLight *LightSource = new PointLight;
+    LightSource->setDiffuse(0.8, 0.8, 0.8); // RGB
+    LightSource->setAmbient(0.6, 0.6, 0.6); // RGB
+    LightSource->setSpecular(0.6, 0.6, 0.6); // RGB
+    LightSource->turnOn();
+
+    //
     // shaders
     //
-    Shader *FlatShader = ShaderManager::getShader("shaders/texture.vert", "shaders/texture.frag");
+    //Shader *FlatShader = ShaderManager::getShader("shaders/texture.vert", "shaders/texture.frag");
+    //Shader *PhongShaderVL = ShaderManager::getShader("://shaders/PhongVL.vert", "://shaders/PassThrough.frag");
+    Shader *PhongTexturedShader = ShaderManager::getShader("://shaders/phong_textured.vert", "://shaders/phong_textured.frag");
 
     //
     // drawables
@@ -185,17 +200,62 @@ Node *InitDungeonScene()
     t->loadPicture("textures/column_v2_tex.png");
 
     //
+    // assign materials
+    //
+    Material *m = 0;
+
+    // floor
+    m = FloorModel->getProperty<Material>();
+    m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setShininess(1.0);
+
+    // ceiling
+    m = CeilingModel->getProperty<Material>();
+    m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setShininess(1.0);
+
+    // wall
+    m = WallModel->getProperty<Material>();
+    m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setShininess(1.0);
+
+    // column
+    m = ColumnModel->getProperty<Material>();
+    m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setShininess(1.0);
+
+    //
     // assign shaders
     //
 
-    FloorModel->setShader(FlatShader);
-    CeilingModel->setShader(FlatShader);
-    WallModel->setShader(FlatShader);
-    ColumnModel->setShader(FlatShader);
+    //FloorModel->setShader(FlatShader);
+    FloorModel->setShader(PhongTexturedShader);
+    CeilingModel->setShader(PhongTexturedShader);
+    WallModel->setShader(PhongTexturedShader);
+    ColumnModel->setShader(PhongTexturedShader);
 
     // scene graph root
     Transformation *RootTransform = new Transformation();
     Node *RootNode = new Node(RootTransform);
+
+    // TEMP LIGHT SOURCE TEST
+    Transformation *LightTransform = new Transformation();
+    Drawable *LightSphere = new Drawable(new SimpleSphere(0.25));
+    Color *c = LightSphere->getProperty<Color>();
+    c->setValue(1.0, 1.0, 0.0, 1.0);
+    LightTransform->translate(4.0, 0.25, 10.0);
+    Node *LightNode = new Node(LightTransform);
+    //LightNode->addChild(new Node(LightSphere));
+    LightNode->addChild(new Node(LightSource));
+    RootNode->addChild(LightNode);
 
     // load tilemap
     {
@@ -223,6 +283,8 @@ Node *InitDungeonScene()
                 // ceiling
                 Node *CeilingNode = new Node(CeilingModel);
                 TileNode->addChild(CeilingNode);
+
+
 
                 // walls
 
