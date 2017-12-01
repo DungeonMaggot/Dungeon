@@ -120,6 +120,10 @@ void SceneManager::initScenes()
     unsigned int myScene = SceneManager::instance()->addScene(InitDungeonScene());
     ScreenRenderer *myRenderer = new ScreenRenderer(myContextNr, myScene);
 
+    //Cam offset of the Pirot Point
+    //QVector3D Cam_offset_3DQt_Vec(1.0,1.0,1.0);
+    //cam->setPosition(Cam_offset_3DQt_Vec);
+
     //Vorsicht: Die Szene muss initialisiert sein, bevor das Fenster verändert wird (Fullscreen)
     SceneManager::instance()->setActiveScene(myScene);
     SceneManager::instance()->setActiveContext(myContextNr);
