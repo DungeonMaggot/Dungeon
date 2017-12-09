@@ -9,6 +9,9 @@
 #include "texture.h"
 #include "trianglemesh.h"
 #include "pointlight.h"
+#include <stdlib.h>
+#include <time.h>
+
 
 // temp includes
 #include "simplesphere.h"
@@ -158,6 +161,20 @@ Node *InitDungeonScene()
     Geometry *WallGeometry = new TriangleMesh("meshes/wall_v2.obj");
     Geometry *ColumnGeometry = new TriangleMesh("meshes/column_v2.obj");
 
+
+    //TODO: (marco) Cleanup the mess i wrote! (everything from the Props)
+    // load 10 props_v2 geometry
+    // int 48-57 = char 0-9
+
+    unsigned int prop_anz = 10;
+    Geometry* Prop_geo_array[10];
+    char Prop_Path[200] = "meshes/prop_v2_0.obj";
+
+    for(unsigned int i = 0; i < prop_anz; i++){
+        Prop_Path[15] = '0'+i;
+        Prop_geo_array[i] = new TriangleMesh(Prop_Path);
+    }
+
     //
     // light sources
     //
@@ -184,10 +201,20 @@ Node *InitDungeonScene()
     Drawable *WallModel = new Drawable(WallGeometry);
     Drawable *ColumnModel = new Drawable(ColumnGeometry);
 
+    //Drawables of the Props
+    Drawable* Prop_drawble_array[10];
+
+    for(unsigned int i = 0; i < prop_anz; i++){
+        Prop_drawble_array[i] = new Drawable(Prop_geo_array[i]);;
+    }
+
     //
     // assign textures
     //
     Texture *t = 0;
+    //18
+    char Prop_tex_path[200] = "textures/prop_v2_0_tex.png";
+
 
     // floor
     t = FloorModel->getProperty<Texture>();
@@ -204,6 +231,15 @@ Node *InitDungeonScene()
     // column
     t = ColumnModel->getProperty<Texture>();
     t->loadPicture("textures/column_v2_tex.png");
+
+    //props Texturen
+    //TODO: (marco) way has Prop_v2_8 the texture of Prop_v2_9?
+
+    for (unsigned int i = 0; i<prop_anz; i++){
+        Prop_tex_path[17] = '0'+i;
+        t = Prop_drawble_array[i]->getProperty<Texture>();
+        t->loadPicture(Prop_tex_path);
+    }
 
     //
     // assign materials
@@ -238,6 +274,13 @@ Node *InitDungeonScene()
     m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
     m->setShininess(1.0);
 
+    // Props
+    m = Prop_drawble_array[5]->getProperty<Material>();
+    m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+    m->setShininess(1.0);
+
     //
     // assign shaders
     //
@@ -248,7 +291,15 @@ Node *InitDungeonScene()
     WallModel->setShader(PhongTexturedShader);
     ColumnModel->setShader(PhongTexturedShader);
 
+    // Props
+    for(unsigned int i = 0; i<prop_anz; i++){
+        Prop_drawble_array[i]->setShader(PhongTexturedShader);
+    }
+
+    //
     // scene graph root
+    //
+
     Transformation *RootTransform = new Transformation();
     Node *RootNode = new Node(RootTransform);
 
@@ -271,6 +322,8 @@ Node *InitDungeonScene()
         // - floor geometry (using the tile's base transform)
         // - 0 to 3 walls   (using their own transforms)
 
+        srand(time(NULL));
+
         TilePos p = {0, 0};
         for(char *c = Level0Map; *c != '\0'; ++c)
         {
@@ -292,6 +345,32 @@ Node *InitDungeonScene()
 
 
 
+                // props
+                // TODO(marco): Prevent dobble spawning on the same position and rotation
+                int anz = rand() % 10+1;
+                int rotationTracker[10];
+                int typeTrcker[10];
+
+                for (int i = 0; i < anz; i++){
+                    int randtype = rand() % 10+1;
+                    int randrotation = rand() % 3+1;
+                    rotationTracker[i] = randrotation;
+                    typeTrcker[i] = randtype;
+
+                    Transformation* prop_trans = new Transformation();
+
+                    for (int j = 0; j < rotationTracker[i]; j++){
+                        prop_trans->rotate(90,0.0,1.0,0.0);
+                    }
+
+
+                    Node *Prop_1_Node = new Node(prop_trans);
+
+                    TileNode->addChild(Prop_1_Node);
+                    Prop_1_Node->addChild(new Node(Prop_drawble_array[i]));
+
+
+                }
                 // walls
 
 
@@ -393,6 +472,9 @@ Node *InitDungeonScene()
                         }
                     }
                 }
+                //adds props
+
+
             }
             else
             {
