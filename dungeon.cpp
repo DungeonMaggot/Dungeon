@@ -233,7 +233,6 @@ Node *InitDungeonScene()
     t->loadPicture("textures/column_v2_tex.png");
 
     //props Texturen
-    //TODO: (marco) way has Prop_v2_8 the texture of Prop_v2_9?
 
     for (unsigned int i = 0; i<prop_anz; i++){
         Prop_tex_path[17] = '0'+i;
