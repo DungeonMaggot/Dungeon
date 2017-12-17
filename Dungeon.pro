@@ -13,7 +13,8 @@ SOURCES += \
 HEADERS  += \
     level0_map.h \
     input.h \
-    dungeon.h
+    dungeon.h \
+    utility.h
 
 FORMS += \
     dockwidget.ui

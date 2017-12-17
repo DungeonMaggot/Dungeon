@@ -27,13 +27,6 @@
 static game_state GameState;
 static game_button *ButtonState[2];
 
-bool TileHasNeighbor(char direction)
-{
-    // TODO(andreas): Tile utilities
-}
-
-
-
 bool PlaceColumnAtPos(int X, int Y,
                       wall_directions WallDirection,
                       relative_column_position ColumnPosition,
@@ -150,8 +143,33 @@ Node *InitDungeonScene()
     GameState.NewButtons = ButtonState[0];
     GameState.OldButtons = ButtonState[1];
     InputListener *Input = new InputListener(&GameState);
+    GameState.LevelMap = Level0Map;
+    GameState.LevelWidth = LEVEL_0_WIDTH;
+    GameState.LevelHeight = LEVEL_0_HEIGHT;
 
     bool *Level0ColumnMap = new bool[(LEVEL_0_WIDTH + 1)*(LEVEL_0_HEIGHT + 1)]{};
+
+    //
+    // scene graph root
+    //
+
+    Transformation *RootTransform = new Transformation();
+    Node *RootNode = new Node(RootTransform);
+
+    //
+    // dungeon actors
+    //
+    GameState.Player = new DungeonActor(2, 7,  // start position (tile coordinates)
+                                        0, -1, // initial orientation, negative y is "up" on the map!
+                                        &GameState);
+    Node *PlayerNode = new Node(GameState.Player);
+    Drawable *PlayerDrawable = new Drawable(new SimpleSphere(0.5));
+    {
+        Color *c = PlayerDrawable->getProperty<Color>();
+        c->setValue(1.f, 1.f, 0.f);
+    }
+    PlayerNode->addChild(new Node(PlayerDrawable));
+    RootNode->addChild(PlayerNode);
 
     //
     // load geometry
@@ -295,13 +313,6 @@ Node *InitDungeonScene()
         Prop_drawble_array[i]->setShader(PhongTexturedShader);
     }
 
-    //
-    // scene graph root
-    //
-
-    Transformation *RootTransform = new Transformation();
-    Node *RootNode = new Node(RootTransform);
-
     // TEMP LIGHT SOURCE TEST
     Transformation *LightTransform = new Transformation();
     Drawable *LightSphere = new Drawable(new SimpleSphere(0.25));
@@ -348,13 +359,13 @@ Node *InitDungeonScene()
                 // TODO(marco): Prevent dobble spawning on the same position and rotation
                 int anz = rand() % 10+1;
                 int rotationTracker[10];
-                int typeTrcker[10];
+                int TypeTracker[10];
 
                 for (int i = 0; i < anz; i++){
                     int randtype = rand() % 10+1;
                     int randrotation = rand() % 3+1;
                     rotationTracker[i] = randrotation;
-                    typeTrcker[i] = randtype;
+                    TypeTracker[i] = randtype;
 
                     Transformation* prop_trans = new Transformation();
 
