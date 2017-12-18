@@ -14,7 +14,8 @@ HEADERS  += \
     level0_map.h \
     input.h \
     dungeon.h \
-    utility.h
+    utility.h \
+    debug_camera.h
 
 FORMS += \
     dockwidget.ui

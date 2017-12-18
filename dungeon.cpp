@@ -19,6 +19,7 @@
 
 // dungeon includes
 #include "dungeon.h"
+#include "debug_camera.h"
 #include "input.h"
 #include "level0_map.h"
 
@@ -110,8 +111,9 @@ void SceneManager::initScenes()
     Ui_FPSWidget *lDock;
     QDockWidget *lDockWidget = new QDockWidget(QString("FPS"), SceneManager::getMainWindow());
 
-    ControllableCamera *cam = new ControllableCamera();
-    RenderingContext *myContext=new RenderingContext(cam);
+    DebugCamera *PlayerCam = new DebugCamera();
+    DebugCamera *DebugCam  = new DebugCamera();
+    RenderingContext *myContext=new RenderingContext(PlayerCam);
     unsigned int myContextNr = SceneManager::instance()->addContext(myContext);
     unsigned int myScene = SceneManager::instance()->addScene(InitDungeonScene());
     ScreenRenderer *myRenderer = new ScreenRenderer(myContextNr, myScene);
@@ -124,6 +126,11 @@ void SceneManager::initScenes()
     SceneManager::instance()->setActiveScene(myScene);
     SceneManager::instance()->setActiveContext(myContextNr);
 //    SceneManager::instance()->setFullScreen();
+
+    // store pointer to scene manager and "controllable camera" in game state
+    GameState.SceneManagerRef = this;
+    GameState.PlayerCam = PlayerCam;
+    GameState.DebugCam = DebugCam;
 
     lDock = new Ui_FPSWidget();
     lDock->setupUi(lDockWidget);
@@ -159,16 +166,22 @@ Node *InitDungeonScene()
     //
     // dungeon actors
     //
-    GameState.Player = new DungeonActor(2, 7,  // start position (tile coordinates)
-                                        0, -1, // initial orientation, negative y is "up" on the map!
-                                        &GameState);
+    GameState.Player = new Player(2, 7,  // start position (tile coordinates)
+                                  1,     // distance from floor (affects camera)
+                                  0, -1, // initial orientation, negative y is "up" on the map!
+                                  &GameState);
     Node *PlayerNode = new Node(GameState.Player);
-    Drawable *PlayerDrawable = new Drawable(new SimpleSphere(0.5));
     {
-        Color *c = PlayerDrawable->getProperty<Color>();
-        c->setValue(1.f, 1.f, 0.f);
+        Player *p = dynamic_cast<Player *>(GameState.Player);
+        if(p)
+        {
+            p->PlayerDrawable = new Drawable(new SimpleSphere(0.5));
+            Color *c = p->PlayerDrawable->getProperty<Color>();
+            c->setValue(1.f, 1.f, 0.f);
+            p->PlayerDrawable->setEnabled(false);
+            PlayerNode->addChild(new Node(p->PlayerDrawable));
+        }
     }
-    PlayerNode->addChild(new Node(PlayerDrawable));
     RootNode->addChild(PlayerNode);
 
     //

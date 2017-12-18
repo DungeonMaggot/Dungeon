@@ -1,8 +1,13 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
+// SG includes
+#include "camera.h"
+#include "scenemanager.h"
 #include "transformation.h"
 
+// dungeon includes
+#include "debug_camera.h"
 #include "utility.h"
 
 #define TILE_RADIUS 1
@@ -34,6 +39,12 @@ enum move_directions
     NUM_MOVE_DIRECTIONS
 };
 
+enum rotation_directions
+{
+    RD_Left,
+    RD_Right
+};
+
 enum relative_column_position
 {
     COL_LEFT = 0,
@@ -60,6 +71,7 @@ enum player_actions
     PA_RotateRight,
     PA_Use,
     PA_Attack,
+    PA_SwitchCamera,
 
     // must be last element
     PA_NumActions
@@ -68,6 +80,10 @@ enum player_actions
 class DungeonActor;
 struct game_state
 {
+    SceneManager *SceneManagerRef;
+    bool DebugCameraActive;
+    DebugCamera *DebugCam;
+    Camera *PlayerCam;
     TilePos PlayerPos;
     Transformation PlayerTransform;
     game_button *NewButtons;
@@ -127,13 +143,12 @@ v2i operator -(v2i &A)
 #include <QElapsedTimer>
 #include <transformation.h>
 #include <idleobserver.h>
-#define MOVEMENT_TIME 1.0f
-#define ROTATION_TIME 0.7f
-#define ACTOR_UP_POS 0.5f
+#define MOVEMENT_TIME 0.5f
+#define ROTATION_TIME 0.5f
 class DungeonActor : public Transformation, public IdleObserver
 {
 public:
-    DungeonActor(int PosX, int PosY, int OrientationX, int OrientationY, game_state *GameState)
+    DungeonActor(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
         : MoveTimer(0.f), MoveTimerResetValue(MOVEMENT_TIME),
           RotationTimer(0.f), RotationTimerResetValue(ROTATION_TIME),
           TilePosCurrent(v2i{PosX, PosY}),
@@ -141,7 +156,7 @@ public:
           MovementDirection(v2i{0, 0}),
           GameStateRef(GameState)
     {
-        this->translate(PosX*TILE_LENGTH, 0.5, PosY*TILE_LENGTH); // set initial position
+        this->translate(PosX*TILE_LENGTH, DistanceFromFloor, PosY*TILE_LENGTH); // set initial position
     }
 
     bool Move(move_directions MoveDirection)
@@ -159,12 +174,20 @@ public:
             {
                 case MD_Left:
                 {
-                    MovementDirection = {-OrientationCurrent.y, -OrientationCurrent.x};
+                    MovementDirection = {OrientationCurrent.y, OrientationCurrent.x};
+                    if(OrientationCurrent.y == 0)
+                    {
+                        MovementDirection = -MovementDirection;
+                    }
                 } break;
 
                 case MD_Right:
                 {
                     MovementDirection = {OrientationCurrent.y, OrientationCurrent.x};
+                    if(OrientationCurrent.x == 0)
+                    {
+                        MovementDirection = -MovementDirection;
+                    }
                 } break;
 
                 case MD_Backward:
@@ -218,8 +241,9 @@ public:
 
                 if(!MoveBlockedByEntity)
                 {
+                    AmountMoved = 0.f;
                     this->TilePosTarget = TargetPosCandidate;
-                    this->MoveTimer = 2.f;
+                    this->MoveTimer = MoveTimerResetValue;
                     DeltaTimer.start();
 
                     Result = true;
@@ -230,7 +254,133 @@ public:
         return Result;
     }
 
-    void ReadInput() // should be overriden by AI control
+    bool Rotate(rotation_directions Direction)
+    {
+        bool Result = false;
+
+        // check if rotation is currently allowed
+        if(   (MoveTimer <= 0.f)
+           && (RotationTimer <= 0.f) )
+        {
+            OrientationTarget = {OrientationCurrent.y, OrientationCurrent.x};
+            if(   (Direction == RD_Left  && OrientationCurrent.y == 0)
+               || (Direction == RD_Right && OrientationCurrent.x == 0) )
+            {
+                OrientationTarget = -OrientationTarget;
+            }
+
+            AmountRotated = 0.f;
+            RotationDirection = Direction;
+            RotationTimer = RotationTimerResetValue;
+            DeltaTimer.start();
+
+            Result = true;
+        }
+
+        return Result;
+    }
+
+
+    virtual void Control() = 0;
+
+    void doIt() override
+    {
+        Control();
+
+        // interpolate movement towards the next grid unit
+        bool Moving   = (MoveTimer > 0.f);
+        bool Rotating = (RotationTimer > 0.f);
+        if(Moving || Rotating)
+        {
+            float DeltaTimeSeconds = ((float)(DeltaTimer.restart()))/1000;
+
+            if(Moving)
+            {
+                if(MoveTimer < DeltaTimeSeconds)
+                {
+                    DeltaTimeSeconds = MoveTimer;
+                    TilePosCurrent = TilePosTarget;
+                    MoveTimer = 0.f;
+                }
+                else
+                {
+                    MoveTimer -= DeltaTimeSeconds;
+                }
+
+                float DistanceToMovePerSecond = TILE_LENGTH/MoveTimerResetValue;
+                float DistanceToMoveThisFrame = DistanceToMovePerSecond * DeltaTimeSeconds;
+
+                if((AmountMoved + DistanceToMoveThisFrame) > TILE_LENGTH)
+                {
+                    DistanceToMoveThisFrame = TILE_LENGTH - AmountMoved;
+                }
+
+                QVector2D Translation = {float(this->MovementDirection.x), float(this->MovementDirection.y)};
+                Translation *= DistanceToMoveThisFrame;
+
+                this->translate(Translation.x(), 0.f, Translation.y());
+                AmountMoved += DistanceToMoveThisFrame;
+            }
+
+            if(Rotating)
+            {
+                if(RotationTimer < DeltaTimeSeconds)
+                {
+                    DeltaTimeSeconds = RotationTimer;
+                    OrientationCurrent = OrientationTarget;
+                    RotationTimer = 0.f;
+                }
+                else
+                {
+                    RotationTimer -= DeltaTimeSeconds;
+                }
+
+                float DegreesToRotatePerSecond = 90.f/RotationTimerResetValue;
+                float AngleForThisFrame = DegreesToRotatePerSecond * DeltaTimeSeconds;
+
+                if((AmountRotated + AngleForThisFrame) > 90.f)
+                {
+                    AngleForThisFrame = 90 - AmountRotated;
+                }
+
+                if(RotationDirection == RD_Left)
+                {
+                    AngleForThisFrame = -AngleForThisFrame;
+                }
+
+                GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
+                AmountRotated += AngleForThisFrame;
+            }
+        }
+    }
+
+protected:
+    QElapsedTimer DeltaTimer;
+    float MoveTimer;
+    float MoveTimerResetValue;
+    float RotationTimer;
+    float RotationTimerResetValue;
+    float AmountMoved;
+    float AmountRotated;
+    v2i TilePosCurrent;
+    v2i TilePosTarget;
+    v2i OrientationCurrent;
+    v2i OrientationTarget;
+    v2i MovementDirection;
+    rotation_directions RotationDirection;
+    game_state *GameStateRef;
+};
+
+#include "drawable.h"
+class Player : public DungeonActor
+{
+public:
+
+    Player(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+        : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
+    {}
+
+    void Control() override // should be overriden by AI control
     {
         if(GameStateRef->NewButtons[PA_MoveForward].IsPressed)
         {
@@ -248,48 +398,27 @@ public:
         {
             Move(MD_Right);
         }
+
+        if(GameStateRef->NewButtons[PA_RotateLeft].IsPressed)
+        {
+            Rotate(RD_Left);
+        }
+        if(GameStateRef->NewButtons[PA_RotateRight].IsPressed)
+        {
+            Rotate(RD_Right);
+        }
     }
 
     void doIt() override
     {
-        ReadInput();
+        // update camera - move this into player
+        QVector4D PlayerPos = this->getModelMatrix().column(3);
+        GameStateRef->PlayerCam->setPosition(PlayerPos.toVector3D());
 
-        // interpolate movement towards the next grid unit
-        if(MoveTimer > 0.f)
-        {
-            float DeltaTimeSeconds = ((float)(DeltaTimer.restart()))/1000;
-
-
-            if(MoveTimer < DeltaTimeSeconds)
-            {
-                DeltaTimeSeconds = MoveTimer;
-                TilePosCurrent = TilePosTarget;
-                MoveTimer = 0.f;
-            }
-            else
-            {
-                MoveTimer -= DeltaTimeSeconds;
-            }
-
-            QVector2D Translation = {float(this->MovementDirection.x), float(this->MovementDirection.y)};
-            Translation *= (DeltaTimeSeconds / MoveTimerResetValue);
-
-            this->translate(Translation.x(), 0.f, Translation.y());
-        }
+        DungeonActor::doIt();
     }
 
-private:
-    QElapsedTimer DeltaTimer;
-    float MoveTimer;
-    float MoveTimerResetValue;
-    float RotationTimer;
-    float RotationTimerResetValue;
-    v2i TilePosCurrent;
-    v2i TilePosTarget;
-    v2i OrientationCurrent;
-    v2i OrientationTarget;
-    v2i MovementDirection;
-    game_state *GameStateRef;
+    Drawable *PlayerDrawable;
 };
 
 #endif // DUNGEON_H

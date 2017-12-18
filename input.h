@@ -33,44 +33,90 @@ class InputListener : public IdleObserver
 {
 public:
     InputListener(game_state *GameState)
+        : GameStateRef(GameState)
     {
-        m_GameState = GameState;
     }
 
     void doIt() override
-    {
+    {   
         KeyboardInput* Key = InputRegistry::getInstance().getKeyboardInput();
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
-                    PA_MoveForward, Key->isKeyPressed('w'));
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
+                    PA_MoveForward,
+                    (Key->isKeyPressed('w') && !GameStateRef->DebugCameraActive) || Key->isKeyPressed('i'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
-                    PA_MoveLeft, Key->isKeyPressed('a'));
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
+                    PA_MoveLeft,
+                    (Key->isKeyPressed('a') && !GameStateRef->DebugCameraActive) || Key->isKeyPressed('j'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
-                    PA_MoveBackward, Key->isKeyPressed('s'));
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
+                    PA_MoveBackward,
+                    (Key->isKeyPressed('s') && !GameStateRef->DebugCameraActive) || Key->isKeyPressed('k'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
-                    PA_MoveRight, Key->isKeyPressed('d'));
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
+                    PA_MoveRight,
+                    (Key->isKeyPressed('d') && !GameStateRef->DebugCameraActive) || Key->isKeyPressed('l'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
                     PA_RotateLeft, Key->isKeyPressed('q'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
                     PA_RotateRight, Key->isKeyPressed('e'));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
                     PA_Use, Key->isKeyPressed(' '));
 
-        HandleInput(m_GameState->OldButtons, m_GameState->NewButtons,
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
                     PA_Attack, Key->isKeyPressed('f'));
 
-        game_button *Temp = m_GameState->OldButtons;
-        m_GameState->OldButtons = m_GameState->NewButtons;
-        m_GameState->NewButtons = Temp;
+        HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
+                    PA_SwitchCamera, Key->isKeyPressed('p'));
+
+        game_button *Temp = GameStateRef->OldButtons;
+        GameStateRef->OldButtons = GameStateRef->NewButtons;
+        GameStateRef->NewButtons = Temp;
+
+        //
+        // camera switch happens here
+        //
+        if(GameStateRef->NewButtons[PA_SwitchCamera].JustPressed)
+        {
+            DebugCamera *Camera = dynamic_cast<DebugCamera *>(GameStateRef->SceneManagerRef->instance()->getActiveContext()->getCamera());
+
+            if(Camera)
+            {
+                if(Camera == GameStateRef->PlayerCam) // switch from player cam to debug cam
+                {
+                    if(GameStateRef->DebugCam)
+                    {
+                        GameStateRef->SceneManagerRef->instance()->getActiveContext()->setCamera(GameStateRef->DebugCam);
+                        GameStateRef->DebugCam->ProcessingInput  = true;
+
+                        GameStateRef->DebugCameraActive = true;
+                    }
+                }
+                else if(Camera == GameStateRef->DebugCam) // switch from debug cam to player cam
+                {
+                    if(GameStateRef->PlayerCam)
+                    {
+                        GameStateRef->SceneManagerRef->instance()->getActiveContext()->setCamera(GameStateRef->PlayerCam);
+                        GameStateRef->DebugCam->ProcessingInput = false;
+
+                        GameStateRef->DebugCameraActive = false;
+                    }
+                }
+            }
+
+            Player *p = dynamic_cast<Player *>(GameStateRef->Player);
+            if(p)
+            {
+                p->PlayerDrawable->setEnabled(GameStateRef->DebugCameraActive);
+            }
+        }
     }
 private:
-    game_state *m_GameState;
+    game_state *GameStateRef;
+
 };
 
 #endif // INPUT_H
