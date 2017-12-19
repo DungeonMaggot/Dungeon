@@ -64,10 +64,10 @@ public:
                     PA_RotateRight, Key->isKeyPressed('e'));
 
         HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
-                    PA_Use, Key->isKeyPressed(' '));
+                    PA_Use, Key->isKeyPressed('f'));
 
         HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
-                    PA_Attack, Key->isKeyPressed('f'));
+                    PA_Attack, Key->isKeyPressed(' '));
 
         HandleInput(GameStateRef->OldButtons, GameStateRef->NewButtons,
                     PA_SwitchCamera, Key->isKeyPressed('p'));

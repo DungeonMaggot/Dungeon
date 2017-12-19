@@ -102,7 +102,7 @@ struct game_state
     };
 };
 
-v2i operator +(v2i &A, v2i &B)
+v2i operator +(v2i A, v2i B)
 {
     v2i Result = {A.x + B.x, A.y + B.y};
 
@@ -123,10 +123,25 @@ bool operator ==(v2i &A, v2i &B)
     return Result;
 }
 
-void operator *=(v2i &vec2, float &flt)
+v2i operator *(float &flt, v2i &vec2)
 {
+    v2i Result = vec2;
     vec2.x *= flt;
     vec2.y *= flt;
+
+    return Result;
+}
+
+v2i operator *(v2i vec2, float flt)
+{
+    v2i Result = flt*vec2;
+
+    return Result;
+}
+
+void operator *=(v2i &vec2, float &flt)
+{
+    vec2 = flt*vec2;
 }
 
 v2i operator -(v2i &A)
@@ -145,12 +160,18 @@ v2i operator -(v2i &A)
 #include <idleobserver.h>
 #define MOVEMENT_TIME 0.5f
 #define ROTATION_TIME 0.5f
+#define ATTACK_TIME   0.5f
+#define PLAYER_HITPOINTS 10
+#define ENEMY_HITPOINTS   5
 class DungeonActor : public Transformation, public IdleObserver
 {
 public:
-    DungeonActor(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+    DungeonActor(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
         : MoveTimer(0.f), MoveTimerResetValue(MOVEMENT_TIME),
           RotationTimer(0.f), RotationTimerResetValue(ROTATION_TIME),
+          AttackTimer(0.f), AttackTimerResetValue(ATTACK_TIME),
+          IsIdle(true),
+          Hitpoints(1),
           TilePosCurrent(v2i{PosX, PosY}),
           OrientationCurrent(v2i{OrientationX, OrientationY}),
           MovementDirection(v2i{0, 0}),
@@ -164,12 +185,9 @@ public:
         bool Result = false;
 
         // check if movement is currently allowed
-        if(   (MoveTimer <= 0.f)
-           && (RotationTimer <= 0.f) )
-        {
-            // calculate target position
-            v2i TargetPosCandidate = TilePosCurrent;
-
+        if(IsIdle)
+        {   
+            // calculate movement direction
             switch(MoveDirection)
             {
                 case MD_Left:
@@ -204,49 +222,58 @@ public:
                 {} break;
             }
 
-            TargetPosCandidate = TilePosCurrent + MovementDirection;
+            v2i TargetPosCandidate = TilePosCurrent + MovementDirection;
 
-            // check if target is walkable
-            char *TileValue = GameStateRef->LevelMap + TargetPosCandidate.y*GameStateRef->LevelWidth + TargetPosCandidate.x;
-            if(*TileValue != ' ')
+            // check if target is outside of the level boundaries
+            if(   (TargetPosCandidate.x >= 0)
+               && (TargetPosCandidate.x <  GameStateRef->LevelWidth)
+               && (TargetPosCandidate.y >= 0)
+               && (TargetPosCandidate.y <  GameStateRef->LevelHeight) )
             {
-                // check against other entities
-                bool MoveBlockedByEntity = false;
-                for(unsigned int EntityIndex = 0;
-                    EntityIndex < ArrayCount(GameStateRef->Entities);
-                    ++EntityIndex)
+                // check if target is walkable
+                char *TileValue = GameStateRef->LevelMap + TargetPosCandidate.y*GameStateRef->LevelWidth + TargetPosCandidate.x;
+                if(*TileValue != ' ')
                 {
-                    DungeonActor *a = *(GameStateRef->Entities + EntityIndex);
-                    if(    a
-                       && (a != this))
+                    // check against other entities
+                    bool MoveBlockedByEntity = false;
+                    for(unsigned int EntityIndex = 0;
+                        EntityIndex < ArrayCount(GameStateRef->Entities);
+                        ++EntityIndex)
                     {
-                        if(a->MoveTimer <= 0.f) // other entity is not moving
+                        DungeonActor *a = *(GameStateRef->Entities + EntityIndex);
+                        if(    a
+                           && (a != this)
+                           && (a->Hitpoints > 0))
                         {
-                           if(a->TilePosCurrent == this->TilePosTarget)
-                           {
-                               MoveBlockedByEntity = true;
-                               break;
-                           }
-                        }
-                        else // other entity is moving
-                        {
-                            if(a->TilePosTarget == this->TilePosTarget) // wants to move to same position
+                            if(a->MoveTimer <= 0.f) // other entity is not moving
                             {
-                                MoveBlockedByEntity = true;
-                                break;
+                               if(a->TilePosCurrent == TargetPosCandidate) // occupies desired target
+                               {
+                                   MoveBlockedByEntity = true;
+                                   break;
+                               }
+                            }
+                            else // other entity is moving
+                            {
+                                if(a->TilePosTarget == TargetPosCandidate) // wants to move to same position
+                                {
+                                    MoveBlockedByEntity = true;
+                                    break;
+                                }
                             }
                         }
                     }
-                }
 
-                if(!MoveBlockedByEntity)
-                {
-                    AmountMoved = 0.f;
-                    this->TilePosTarget = TargetPosCandidate;
-                    this->MoveTimer = MoveTimerResetValue;
-                    DeltaTimer.start();
+                    if(!MoveBlockedByEntity)
+                    {
+                        IsIdle = false;
+                        AmountMoved = 0.f;
+                        this->TilePosTarget = TargetPosCandidate;
+                        this->MoveTimer = MoveTimerResetValue;
+                        DeltaTimer.start();
 
-                    Result = true;
+                        Result = true;
+                    }
                 }
             }
         }
@@ -259,8 +286,7 @@ public:
         bool Result = false;
 
         // check if rotation is currently allowed
-        if(   (MoveTimer <= 0.f)
-           && (RotationTimer <= 0.f) )
+        if(IsIdle)
         {
             OrientationTarget = {OrientationCurrent.y, OrientationCurrent.x};
             if(   (Direction == RD_Left  && OrientationCurrent.y == 0)
@@ -269,6 +295,7 @@ public:
                 OrientationTarget = -OrientationTarget;
             }
 
+            IsIdle = false;
             AmountRotated = 0.f;
             RotationDirection = Direction;
             RotationTimer = RotationTimerResetValue;
@@ -280,6 +307,41 @@ public:
         return Result;
     }
 
+    virtual void RotationDoneUpdate(rotation_directions Direction) = 0;
+
+    bool Attack()
+    {
+        bool Result = false;
+
+        // check if attacking is currently allowed
+        if(IsIdle)
+        {
+            IsIdle = false;
+            AttackTimer = AttackTimerResetValue;
+            DeltaTimer.start();
+
+            AttackTargetTile = TilePosCurrent + (OrientationCurrent * TILE_LENGTH);
+
+            Result = true;
+        }
+
+        return Result;
+    }
+
+    virtual void AttackAnimationStep(float DeltaTime) = 0;
+    virtual void AttackAnimationReset() = 0;
+
+    void ApplyDamage(int Damage)
+    {
+        Hitpoints -= Damage;
+        if(Hitpoints <= 0)
+        {
+            Die();
+        }
+    }
+
+    virtual void Die() = 0;
+
 
     virtual void Control() = 0; // overridden by player/AI control
 
@@ -288,19 +350,18 @@ public:
         Control();
 
         // interpolate movement towards the next grid unit
-        bool Moving   = (MoveTimer > 0.f);
-        bool Rotating = (RotationTimer > 0.f);
-        if(Moving || Rotating)
+        if(!IsIdle)
         {
             float DeltaTimeSeconds = ((float)(DeltaTimer.restart()))/1000;
 
-            if(Moving)
+            if(MoveTimer > 0.f) // currently moving
             {
                 if(MoveTimer < DeltaTimeSeconds)
                 {
                     DeltaTimeSeconds = MoveTimer;
                     TilePosCurrent = TilePosTarget;
                     MoveTimer = 0.f;
+                    IsIdle = true;
                 }
                 else
                 {
@@ -322,13 +383,16 @@ public:
                 AmountMoved += DistanceToMoveThisFrame;
             }
 
-            if(Rotating)
+            if(RotationTimer > 0.f) // currently rotating
             {
                 if(RotationTimer < DeltaTimeSeconds)
                 {
                     DeltaTimeSeconds = RotationTimer;
                     OrientationCurrent = OrientationTarget;
                     RotationTimer = 0.f;
+                    IsIdle = true;
+
+                    RotationDoneUpdate(RotationDirection);
                 }
                 else
                 {
@@ -351,8 +415,52 @@ public:
                 GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
                 AmountRotated += AngleForThisFrame;
             }
+
+            if(AttackTimer > 0.f) // currently attacking
+            {
+                static bool AttackTriggered;
+
+                if(AttackTimer < DeltaTimeSeconds)
+                {
+                    DeltaTimeSeconds = AttackTimer;
+                    AttackTimer = 0.f;
+                    AttackTriggered = false;
+                    AttackAnimationReset();
+                    IsIdle = true;
+                }
+                else
+                {
+                    AttackTimer -= DeltaTimeSeconds;
+                }
+
+                AttackAnimationStep(DeltaTimeSeconds);
+
+                if(   !AttackTriggered
+                   && (AttackTimer <= (AttackTimerResetValue*0.5f)) )
+                {
+                    AttackTriggered = true;
+
+                    for(unsigned int EntityIndex = 0;
+                        EntityIndex < ArrayCount(GameStateRef->Entities);
+                        ++EntityIndex)
+                    {
+                        DungeonActor *a = *(GameStateRef->Entities + EntityIndex);
+                        if(    a
+                           && (a->Hitpoints > 0)
+                           && (a != this) )
+                        {
+                            if(a->TilePosCurrent == this->AttackTargetTile)
+                            {
+                                a->ApplyDamage(1);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
+
+    Drawable *ActorModel;
 
 protected:
     QElapsedTimer DeltaTimer;
@@ -360,13 +468,18 @@ protected:
     float MoveTimerResetValue;
     float RotationTimer;
     float RotationTimerResetValue;
+    float AttackTimer;
+    float AttackTimerResetValue;
     float AmountMoved;
     float AmountRotated;
+    bool IsIdle;
+    int Hitpoints;
     v2i TilePosCurrent;
     v2i TilePosTarget;
     v2i OrientationCurrent;
     v2i OrientationTarget;
     v2i MovementDirection;
+    v2i AttackTargetTile;
     rotation_directions RotationDirection;
     game_state *GameStateRef;
 };
@@ -376,9 +489,11 @@ class Player : public DungeonActor
 {
 public:
 
-    Player(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+    Player(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
-    {}
+    {
+        Hitpoints = PLAYER_HITPOINTS;
+    }
 
     void Control() override
     {
@@ -407,6 +522,35 @@ public:
         {
             Rotate(RD_Right);
         }
+
+        if(GameStateRef->NewButtons[PA_Attack].IsPressed)
+        {
+            Attack();
+        }
+    }
+
+    void Die() override
+    {
+
+    }
+
+    virtual void RotationDoneUpdate(rotation_directions Direction) override
+    {
+        float Angle = (Direction == RD_Left) ? 90.f : -90.f ;
+        WeaponPivot->rotate(Angle, 0.f, 1.f, 0.f);
+    }
+
+    virtual void AttackAnimationStep(float DeltaTime) override
+    {
+        float DegreesToRotatePerSecond = 60.f/AttackTimerResetValue;
+        float AngleForThisFrame = -(DegreesToRotatePerSecond * DeltaTime);
+
+        Weapon->rotate(AngleForThisFrame, 1.f, 0.f, 0.f);
+    }
+
+    virtual void AttackAnimationReset() override
+    {
+        Weapon->rotate(60.f, 1.f, 0.f, 0.f);
     }
 
     void doIt() override
@@ -418,16 +562,43 @@ public:
     }
 
     Drawable *PlayerDrawable;
+    Transformation *WeaponPivot;
+    Transformation *Weapon;
 };
 
 class Megaskull : public DungeonActor
 {
 public:
-    Megaskull(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+    Megaskull(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
-    {}
+    {
+        Hitpoints = ENEMY_HITPOINTS;
+    }
 
     void Control() override
+    {
+
+    }
+
+    void Die() override
+    {
+        if(ActorModel)
+        {
+            ActorModel->setEnabled(false);
+        }
+    }
+
+    virtual void RotationDoneUpdate(rotation_directions Direction) override
+    {
+
+    }
+
+    virtual void AttackAnimationStep(float DeltaTime) override
+    {
+
+    }
+
+    virtual void AttackAnimationReset() override
     {
 
     }

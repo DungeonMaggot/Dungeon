@@ -13,7 +13,7 @@
 #include <time.h>
 
 
-// temp includes
+#include "simplecube.h"
 #include "simplesphere.h"
 #include "color.h"
 
@@ -182,50 +182,69 @@ Node *InitDungeonScene()
         Player *p = dynamic_cast<Player *>(GameState.Player);
         if(p)
         {
-            p->PlayerDrawable = new Drawable(new SimpleSphere(0.5));
-            Color *c = p->PlayerDrawable->getProperty<Color>();
+            p->ActorModel = new Drawable(new SimpleSphere(0.5));
+            Color *c = p->ActorModel->getProperty<Color>();
             c->setValue(1.f, 1.f, 0.f);
-            p->PlayerDrawable->setEnabled(false);
-            PlayerNode->addChild(new Node(p->PlayerDrawable));
+            p->ActorModel->setEnabled(false);
+            PlayerNode->addChild(new Node(p->ActorModel));
 
-            // player light source
-            PointLight *PlayerLight = new PointLight;
-            PlayerLight->setDiffuse(0.8, 0.8, 0.8); // RGB
-            PlayerLight->setAmbient(0.6, 0.6, 0.6); // RGB
-            PlayerLight->setSpecular(0.6, 0.6, 0.6); // RGB
-            PlayerLight->turnOn();
-            PlayerLight->setQuadraticAttenuation(0.075); // higher value = darker
-            PlayerNode->addChild(new Node(PlayerLight));
+            // player weapon
+            p->WeaponPivot = new Transformation;
+            p->Weapon = new Transformation;
+
+            p->Weapon->rotate(-20.f, 1.f, 0.f, 0.f);
+            p->Weapon->translate(0.5f, 0.5f, -1.f);
+
+            Geometry *WeaponGeometry = new SimpleCube(.1f, 1.f, .1f);
+            Drawable *WeaponModel = new Drawable(WeaponGeometry);
+            c = WeaponModel->getProperty<Color>();
+            c->setValue(0.4, 0.4, 0.4, 1.0);
+            Node *WeaponPivotNode = new Node(p->WeaponPivot);
+            Node *WeaponNode = new Node(p->Weapon);
+            WeaponNode->addChild(new Node(WeaponModel));
+            WeaponPivotNode->addChild(WeaponNode);
+            PlayerNode->addChild(WeaponPivotNode);
         }
+
+        // player light source
+        PointLight *PlayerLight = new PointLight;
+        PlayerLight->setDiffuse(0.8, 0.8, 0.8); // RGB
+        PlayerLight->setAmbient(0.6, 0.6, 0.6); // RGB
+        PlayerLight->setSpecular(0.6, 0.6, 0.6); // RGB
+        PlayerLight->turnOn();
+        PlayerLight->setQuadraticAttenuation(0.04); // higher value = darker
+        PlayerNode->addChild(new Node(PlayerLight));
     }
     RootNode->addChild(PlayerNode);
     //
     // dungeon actors - enemies
     //
     GameState.Enemies[0] = new Megaskull(1, 4, // start position (tile coordinates, negative y is north)
-                                         0,     // distance from floor (affects model)
+                                         0.25,     // distance from floor (affects model)
                                          0, 1, // intial orientation, negative y is "up" on the map
                                          &GameState);
     // setup enemy graphics and SG nodes
     Geometry *MegaskullGeometry = new TriangleMesh("meshes/skull_base.obj");
-    Drawable *MegaskullModel = new Drawable(MegaskullGeometry);
-    {
-        Texture *t = MegaskullModel->getProperty<Texture>();
-        t->loadPicture("textures/skull_base_tex_2k.png");
-        Material *m = MegaskullModel->getProperty<Material>();
-        m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
-        m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
-        m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
-        m->setShininess(1.0);
-        MegaskullModel->setShader(PhongTexturedShader);
-    }
+
     for(unsigned int EnemyIndex = 0; EnemyIndex < ArrayCount(GameState.Enemies); ++EnemyIndex)
     {
         Megaskull *mega = dynamic_cast<Megaskull *>(GameState.Enemies[EnemyIndex]);
         if(mega)
         {
+            mega->ActorModel = new Drawable(MegaskullGeometry);
+            {
+                Texture *t = mega->ActorModel->getProperty<Texture>();
+                t->loadPicture("textures/skull_base_tex_2k.png");
+                Material *m = mega->ActorModel->getProperty<Material>();
+                m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+                m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+                m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+                m->setShininess(1.0);
+                mega->ActorModel->setShader(PhongTexturedShader);
+            }
+
             Node *MegaskullNode = new Node(mega);
-            MegaskullNode->addChild(new Node(MegaskullModel));
+            MegaskullNode->addChild(new Node(mega->ActorModel));
             RootNode->addChild(MegaskullNode);
         }
     }
