@@ -164,11 +164,18 @@ Node *InitDungeonScene()
     Node *RootNode = new Node(RootTransform);
 
     //
-    // dungeon actors
+    // shaders
     //
-    GameState.Player = new Player(2, 7,  // start position (tile coordinates)
+    //Shader *FlatShader = ShaderManager::getShader("shaders/texture.vert", "shaders/texture.frag");
+    //Shader *PhongShaderVL = ShaderManager::getShader("://shaders/PhongVL.vert", "://shaders/PassThrough.frag");
+    Shader *PhongTexturedShader = ShaderManager::getShader("://shaders/phong_textured.vert", "://shaders/phong_textured.frag");
+
+    //
+    // dungeon actors - player
+    //
+    GameState.Player = new Player(2, 7,  // start position (tile coordinates, negative y is north)
                                   1,     // distance from floor (affects camera)
-                                  0, -1, // initial orientation, negative y is "up" on the map!
+                                  0, -1, // initial orientation, negative y is "up" on the map
                                   &GameState);
     Node *PlayerNode = new Node(GameState.Player);
     {
@@ -180,9 +187,48 @@ Node *InitDungeonScene()
             c->setValue(1.f, 1.f, 0.f);
             p->PlayerDrawable->setEnabled(false);
             PlayerNode->addChild(new Node(p->PlayerDrawable));
+
+            // player light source
+            PointLight *PlayerLight = new PointLight;
+            PlayerLight->setDiffuse(0.8, 0.8, 0.8); // RGB
+            PlayerLight->setAmbient(0.6, 0.6, 0.6); // RGB
+            PlayerLight->setSpecular(0.6, 0.6, 0.6); // RGB
+            PlayerLight->turnOn();
+            PlayerLight->setQuadraticAttenuation(0.075); // higher value = darker
+            PlayerNode->addChild(new Node(PlayerLight));
         }
     }
     RootNode->addChild(PlayerNode);
+    //
+    // dungeon actors - enemies
+    //
+    GameState.Enemies[0] = new Megaskull(1, 4, // start position (tile coordinates, negative y is north)
+                                         0,     // distance from floor (affects model)
+                                         0, 1, // intial orientation, negative y is "up" on the map
+                                         &GameState);
+    // setup enemy graphics and SG nodes
+    Geometry *MegaskullGeometry = new TriangleMesh("meshes/skull_base.obj");
+    Drawable *MegaskullModel = new Drawable(MegaskullGeometry);
+    {
+        Texture *t = MegaskullModel->getProperty<Texture>();
+        t->loadPicture("textures/skull_base_tex_2k.png");
+        Material *m = MegaskullModel->getProperty<Material>();
+        m->setDiffuse(0.5, 0.5, 0.5, 1.0); // RGBA
+        m->setAmbient(0.5, 0.5, 0.5, 1.0); // RGBA
+        m->setSpecular(0.5, 0.5, 0.5, 1.0); // RGBA
+        m->setShininess(1.0);
+        MegaskullModel->setShader(PhongTexturedShader);
+    }
+    for(unsigned int EnemyIndex = 0; EnemyIndex < ArrayCount(GameState.Enemies); ++EnemyIndex)
+    {
+        Megaskull *mega = dynamic_cast<Megaskull *>(GameState.Enemies[EnemyIndex]);
+        if(mega)
+        {
+            Node *MegaskullNode = new Node(mega);
+            MegaskullNode->addChild(new Node(MegaskullModel));
+            RootNode->addChild(MegaskullNode);
+        }
+    }
 
     //
     // load geometry
@@ -209,20 +255,7 @@ Node *InitDungeonScene()
     //
     // light sources
     //
-    PointLight *LightSource = new PointLight;
-    //marcos test Values
-    //LightSource->setDiffuse(0.7, 0.5, 0.5); // RGB
-    LightSource->setDiffuse(0.8, 0.8, 0.8); // RGB
-    LightSource->setAmbient(0.6, 0.6, 0.6); // RGB
-    LightSource->setSpecular(0.6, 0.6, 0.6); // RGB
-    LightSource->turnOn();
 
-    //
-    // shaders
-    //
-    //Shader *FlatShader = ShaderManager::getShader("shaders/texture.vert", "shaders/texture.frag");
-    //Shader *PhongShaderVL = ShaderManager::getShader("://shaders/PhongVL.vert", "://shaders/PassThrough.frag");
-    Shader *PhongTexturedShader = ShaderManager::getShader("://shaders/phong_textured.vert", "://shaders/phong_textured.frag");
 
     //
     // drawables
@@ -325,17 +358,6 @@ Node *InitDungeonScene()
     for(unsigned int i = 0; i<prop_anz; i++){
         Prop_drawble_array[i]->setShader(PhongTexturedShader);
     }
-
-    // TEMP LIGHT SOURCE TEST
-    Transformation *LightTransform = new Transformation();
-    Drawable *LightSphere = new Drawable(new SimpleSphere(0.25));
-    Color *c = LightSphere->getProperty<Color>();
-    c->setValue(1.0, 1.0, 0.0, 1.0);
-    LightTransform->translate(4.0, 0.25, 10.0);
-    Node *LightNode = new Node(LightTransform);
-    //LightNode->addChild(new Node(LightSphere));
-    LightNode->addChild(new Node(LightSource));
-    RootNode->addChild(LightNode);
 
     // load tilemap
     {

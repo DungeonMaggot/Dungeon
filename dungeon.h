@@ -281,7 +281,7 @@ public:
     }
 
 
-    virtual void Control() = 0;
+    virtual void Control() = 0; // overridden by player/AI control
 
     void doIt() override
     {
@@ -380,7 +380,7 @@ public:
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
     {}
 
-    void Control() override // should be overriden by AI control
+    void Control() override
     {
         if(GameStateRef->NewButtons[PA_MoveForward].IsPressed)
         {
@@ -411,7 +411,6 @@ public:
 
     void doIt() override
     {
-        // update camera - move this into player
         QVector4D PlayerPos = this->getModelMatrix().column(3);
         GameStateRef->PlayerCam->setPosition(PlayerPos.toVector3D());
 
@@ -419,6 +418,19 @@ public:
     }
 
     Drawable *PlayerDrawable;
+};
+
+class Megaskull : public DungeonActor
+{
+public:
+    Megaskull(int PosX, int PosY, int DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+        : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
+    {}
+
+    void Control() override
+    {
+
+    }
 };
 
 #endif // DUNGEON_H
