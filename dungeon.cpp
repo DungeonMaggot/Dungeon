@@ -485,17 +485,25 @@ Node *InitDungeonScene()
                     {
                         // add a wall
                         Transformation *WallTransform = new Transformation();
+                        //Transformation *ColumnTransform = new Transformation();
+
 
                         switch(WallIndex)
                         {
                             case WALL_WEST:
-                            { WallTransform->rotate(90.0, 0.0, 1.0, 0.0); } break;
+                            { WallTransform->rotate     (90.0, 0.0, 1.0, 0.0);
+                              //ColumnTransform->rotate   (90.0, 0.0, 1.0, 0.0);
+                            } break;
 
                             case WALL_EAST:
-                            { WallTransform->rotate(-90.0, 0.0, 1.0, 0.0); } break;
+                            { WallTransform->rotate     (-90.0, 0.0, 1.0, 0.0);
+                              //ColumnTransform->rotate   (-90.0, 0.0, 1.0, 0.0);
+                            } break;
 
                             case WALL_SOUTH:
-                            { WallTransform->rotate(180.0, 0.0, 1.0, 0.0); } break;
+                            { WallTransform->rotate     (180.0, 0.0, 1.0, 0.0);
+                              //ColumnTransform->rotate   (180.0, 0.0, 1.0, 0.0);
+                            } break;
 
                             case WALL_NORTH:
                             {} break; // no rotation necessary
@@ -503,13 +511,19 @@ Node *InitDungeonScene()
                             default:
                             {} break; // TODO(andreas): Handle error.
                         }
-
+                        //Add Wall
                         Node *WallNode = new Node(WallTransform);
                         TileNode->addChild(WallNode);
                         WallNode->addChild(new Node(WallModel));
-
+                        WallNode->addChild(new Node(ColumnModel));
+                        //Add Columne
+                        //Node *ColumnNode = new Node(ColumnTransform);
+                        //TileNode->addChild(WallNode);
+                        //ColumnNode->addChild(new Node(ColumnModel));
+#if 0
                         // add columns to the wall, if necessary
                         bool MustPlaceColumn[NUM_RELATIVE_COLUMN_POSITIONS] = {};
+
                         for(int ColumnIndex = 0; ColumnIndex < NUM_RELATIVE_COLUMN_POSITIONS; ++ColumnIndex)
                         {
                             MustPlaceColumn[ColumnIndex] =
@@ -534,9 +548,10 @@ Node *InitDungeonScene()
                                 ColumnNode->addChild(new Node(ColumnModel));
                             }
                         }
+#endif
                     }
                 }
-                //adds props
+
 
 
             }
