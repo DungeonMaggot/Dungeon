@@ -376,31 +376,35 @@ public:
 
     virtual void Update(float DeltaTimeSeconds)
     {
-        switch(State)
+        if(DeltaTimeSeconds > 0.f) // QElapsedTime may pass negative values
         {
-            case DAS_Moving:
-            {
-                InterpolateMovement(DeltaTimeSeconds);
-            } break;
 
-            case DAS_Rotating:
+            switch(State)
             {
-                InterpolateRotation(DeltaTimeSeconds);
-            } break;
+                case DAS_Moving:
+                {
+                    InterpolateMovement(DeltaTimeSeconds);
+                } break;
 
-            case DAS_Attacking:
-            {
-                InterpolateAttack(DeltaTimeSeconds);
-            } break;
+                case DAS_Rotating:
+                {
+                    InterpolateRotation(DeltaTimeSeconds);
+                } break;
 
-            case DAS_Waiting:
-            {
-                Wait(DeltaTimeSeconds);
-            } break;
+                case DAS_Attacking:
+                {
+                    InterpolateAttack(DeltaTimeSeconds);
+                } break;
 
-            case DAS_AwaitingControl:
-            default:
-            { } break;
+                case DAS_Waiting:
+                {
+                    Wait(DeltaTimeSeconds);
+                } break;
+
+                case DAS_AwaitingControl:
+                default:
+                { } break;
+            }
         }
     }
 
@@ -436,6 +440,8 @@ public:
         }
     }
 
+    virtual void RotationUpdate(float AngleForThisFrame) =0;
+
     void InterpolateRotation(float DeltaTimeSeconds)
     {
         if(Timer > 0.f) // currently rotating
@@ -467,8 +473,10 @@ public:
                 AngleForThisFrame = -AngleForThisFrame;
             }
 
-            GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
             AmountRotated += AngleForThisFrame;
+
+            // used for player camera update / enemy rotation
+            RotationUpdate(AngleForThisFrame);
         }
     }
 
@@ -599,6 +607,12 @@ public:
 
     }
 
+    virtual void RotationUpdate(float AngleForThisFrame) override
+    {
+        // TODO(andreas): Move PlayerCam into Player
+        GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
+    }
+
     virtual void RotationDoneUpdate(rotation_directions Direction) override
     {
         float Angle = (Direction == RD_Left) ? 90.f : -90.f ;
@@ -640,11 +654,11 @@ public:
         Hitpoints = ENEMY_HITPOINTS;
         LastKnownPlayerPosition = {-1, -1};
         WaitTimerResetValue = 3.0f;
+        PreviousChoice = 0;
     }
 
     void Control() override
     {
-#if 0
         if(State == DAS_AwaitingControl)
         {
             // test if player is in sight
@@ -696,31 +710,33 @@ public:
                 {
                     if(State != DAS_Waiting)
                     {
-                        int Choice = rand() % 3;
+                        int Choice;
+                        if(PreviousChoice > 0)
+                        {
+                            Choice = 0;
+                        }
+                        else
+                        {
+                            Choice = rand() % 3;
+                        }
+                        PreviousChoice = Choice;
+
                         switch(Choice)
                         {
                             case 0:
-                            /*{
+                            {
                                 State = DAS_Waiting;
                                 Timer = WaitTimerResetValue;
-                            } break;*/
+                            } break;
 
                             case 1:
                             {
-                                Megaskull *m = dynamic_cast<Megaskull *>(this);
-                                if(m)
-                                {
-                                    Rotate(RD_Left);
-                                }
+                                Rotate(RD_Left);
                             } break;
 
                             case 2:
                             {
-                                Megaskull *m = dynamic_cast<Megaskull *>(this);
-                                if(m)
-                                {
-                                    Rotate(RD_Right);
-                                }
+                                Rotate(RD_Right);
                             } break;
 
                             default:
@@ -730,7 +746,6 @@ public:
                 }
             }
         }
-#endif
     }
 
     void Die() override
@@ -739,6 +754,11 @@ public:
         {
             ActorModel->setEnabled(false);
         }
+    }
+
+    virtual void RotationUpdate(float AngleForThisFrame) override
+    {
+        rotate(AngleForThisFrame, 0.f, 1.f, 0.f);
     }
 
     virtual void RotationDoneUpdate(rotation_directions Direction) override
@@ -759,6 +779,7 @@ public:
 protected:
     v2i LastKnownPlayerPosition;
     float WaitTimerResetValue;
+    int PreviousChoice = 0;
 };
 
 #endif // DUNGEON_H
