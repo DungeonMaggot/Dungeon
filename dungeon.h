@@ -1,6 +1,9 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
+// C includes
+#include <stdlib.h>
+
 // SG includes
 #include "camera.h"
 #include "scenemanager.h"
@@ -77,6 +80,15 @@ enum player_actions
     PA_NumActions
 };
 
+enum dungeon_actor_state
+{
+    DAS_Moving,
+    DAS_Rotating,
+    DAS_Attacking,
+    DAS_Waiting,
+    DAS_AwaitingControl
+};
+
 class DungeonActor;
 struct game_state
 {
@@ -109,6 +121,11 @@ v2i operator +(v2i A, v2i B)
     return Result;
 }
 
+void operator +=(v2i &A, v2i &B)
+{
+    A = A + B;
+}
+
 v2i operator -(v2i &A, v2i &B)
 {
     v2i Result = {A.x - B.x, A.y - B.y};
@@ -119,6 +136,13 @@ v2i operator -(v2i &A, v2i &B)
 bool operator ==(v2i &A, v2i &B)
 {
     bool Result = ((A.x == B.x) && (A.y == B.y));
+
+    return Result;
+}
+
+bool operator !=(v2i &A, v2i &B)
+{
+    bool Result = !((A.x == B.x) && (A.y == B.y));
 
     return Result;
 }
@@ -154,7 +178,6 @@ v2i operator -(v2i &A)
     return Result;
 }
 
-
 #include <QElapsedTimer>
 #include <transformation.h>
 #include <idleobserver.h>
@@ -167,10 +190,11 @@ class DungeonActor : public Transformation, public IdleObserver
 {
 public:
     DungeonActor(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
-        : MoveTimer(0.f), MoveTimerResetValue(MOVEMENT_TIME),
-          RotationTimer(0.f), RotationTimerResetValue(ROTATION_TIME),
-          AttackTimer(0.f), AttackTimerResetValue(ATTACK_TIME),
-          IsIdle(true),
+        : Timer(0.f),
+          MoveTimerResetValue(MOVEMENT_TIME),
+          RotationTimerResetValue(ROTATION_TIME),
+          AttackTimerResetValue(ATTACK_TIME),
+          State(DAS_AwaitingControl),
           Hitpoints(1),
           TilePosCurrent(v2i{PosX, PosY}),
           OrientationCurrent(v2i{OrientationX, OrientationY}),
@@ -185,7 +209,7 @@ public:
         bool Result = false;
 
         // check if movement is currently allowed
-        if(IsIdle)
+        if(State == DAS_AwaitingControl)
         {   
             // calculate movement direction
             switch(MoveDirection)
@@ -245,7 +269,7 @@ public:
                            && (a != this)
                            && (a->Hitpoints > 0))
                         {
-                            if(a->MoveTimer <= 0.f) // other entity is not moving
+                            if(a->Timer <= 0.f) // other entity is not moving
                             {
                                if(a->TilePosCurrent == TargetPosCandidate) // occupies desired target
                                {
@@ -266,11 +290,10 @@ public:
 
                     if(!MoveBlockedByEntity)
                     {
-                        IsIdle = false;
+                        State = DAS_Moving;
                         AmountMoved = 0.f;
                         this->TilePosTarget = TargetPosCandidate;
-                        this->MoveTimer = MoveTimerResetValue;
-                        DeltaTimer.start();
+                        this->Timer = MoveTimerResetValue;
 
                         Result = true;
                     }
@@ -286,7 +309,7 @@ public:
         bool Result = false;
 
         // check if rotation is currently allowed
-        if(IsIdle)
+        if(State == DAS_AwaitingControl)
         {
             OrientationTarget = {OrientationCurrent.y, OrientationCurrent.x};
             if(   (Direction == RD_Left  && OrientationCurrent.y == 0)
@@ -295,11 +318,10 @@ public:
                 OrientationTarget = -OrientationTarget;
             }
 
-            IsIdle = false;
+            State = DAS_Rotating;
             AmountRotated = 0.f;
             RotationDirection = Direction;
-            RotationTimer = RotationTimerResetValue;
-            DeltaTimer.start();
+            Timer = RotationTimerResetValue;
 
             Result = true;
         }
@@ -314,11 +336,10 @@ public:
         bool Result = false;
 
         // check if attacking is currently allowed
-        if(IsIdle)
+        if(State == DAS_AwaitingControl)
         {
-            IsIdle = false;
-            AttackTimer = AttackTimerResetValue;
-            DeltaTimer.start();
+            State = DAS_Attacking;
+            Timer = AttackTimerResetValue;
 
             AttackTargetTile = TilePosCurrent + (OrientationCurrent * TILE_LENGTH);
 
@@ -349,110 +370,154 @@ public:
     {
         Control();
 
-        // interpolate movement towards the next grid unit
-        if(!IsIdle)
+        float DeltaTimeSeconds = ((float)(DeltaTimer.restart()))/1000;
+        Update(DeltaTimeSeconds);
+    }
+
+    virtual void Update(float DeltaTimeSeconds)
+    {
+        if(DeltaTimeSeconds > 0.f) // QElapsedTime may pass negative values
         {
-            float DeltaTimeSeconds = ((float)(DeltaTimer.restart()))/1000;
 
-            if(MoveTimer > 0.f) // currently moving
+            switch(State)
             {
-                if(MoveTimer < DeltaTimeSeconds)
+                case DAS_Moving:
                 {
-                    DeltaTimeSeconds = MoveTimer;
-                    TilePosCurrent = TilePosTarget;
-                    MoveTimer = 0.f;
-                    IsIdle = true;
-                }
-                else
+                    InterpolateMovement(DeltaTimeSeconds);
+                } break;
+
+                case DAS_Rotating:
                 {
-                    MoveTimer -= DeltaTimeSeconds;
-                }
+                    InterpolateRotation(DeltaTimeSeconds);
+                } break;
 
-                float DistanceToMovePerSecond = TILE_LENGTH/MoveTimerResetValue;
-                float DistanceToMoveThisFrame = DistanceToMovePerSecond * DeltaTimeSeconds;
-
-                if((AmountMoved + DistanceToMoveThisFrame) > TILE_LENGTH)
+                case DAS_Attacking:
                 {
-                    DistanceToMoveThisFrame = TILE_LENGTH - AmountMoved;
-                }
+                    InterpolateAttack(DeltaTimeSeconds);
+                } break;
 
-                QVector2D Translation = {float(this->MovementDirection.x), float(this->MovementDirection.y)};
-                Translation *= DistanceToMoveThisFrame;
+                case DAS_Waiting:
+                {
+                    Wait(DeltaTimeSeconds);
+                } break;
 
-                this->translate(Translation.x(), 0.f, Translation.y());
-                AmountMoved += DistanceToMoveThisFrame;
+                case DAS_AwaitingControl:
+                default:
+                { } break;
+            }
+        }
+    }
+
+    void InterpolateMovement(float DeltaTimeSeconds)
+    {
+        if(Timer > 0.f) // currently moving
+        {
+            if(Timer < DeltaTimeSeconds)
+            {
+                DeltaTimeSeconds = Timer;
+                TilePosCurrent = TilePosTarget;
+                Timer = 0.f;
+                State = DAS_AwaitingControl;
+            }
+            else
+            {
+                Timer -= DeltaTimeSeconds;
             }
 
-            if(RotationTimer > 0.f) // currently rotating
+            float DistanceToMovePerSecond = TILE_LENGTH/MoveTimerResetValue;
+            float DistanceToMoveThisFrame = DistanceToMovePerSecond * DeltaTimeSeconds;
+
+            if((AmountMoved + DistanceToMoveThisFrame) > TILE_LENGTH)
             {
-                if(RotationTimer < DeltaTimeSeconds)
-                {
-                    DeltaTimeSeconds = RotationTimer;
-                    OrientationCurrent = OrientationTarget;
-                    RotationTimer = 0.f;
-                    IsIdle = true;
-
-                    RotationDoneUpdate(RotationDirection);
-                }
-                else
-                {
-                    RotationTimer -= DeltaTimeSeconds;
-                }
-
-                float DegreesToRotatePerSecond = 90.f/RotationTimerResetValue;
-                float AngleForThisFrame = DegreesToRotatePerSecond * DeltaTimeSeconds;
-
-                if((AmountRotated + AngleForThisFrame) > 90.f)
-                {
-                    AngleForThisFrame = 90 - AmountRotated;
-                }
-
-                if(RotationDirection == RD_Left)
-                {
-                    AngleForThisFrame = -AngleForThisFrame;
-                }
-
-                GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
-                AmountRotated += AngleForThisFrame;
+                DistanceToMoveThisFrame = TILE_LENGTH - AmountMoved;
             }
 
-            if(AttackTimer > 0.f) // currently attacking
+            QVector2D Translation = {float(this->MovementDirection.x), float(this->MovementDirection.y)};
+            Translation *= DistanceToMoveThisFrame;
+
+            this->translate(Translation.x(), 0.f, Translation.y());
+            AmountMoved += DistanceToMoveThisFrame;
+        }
+    }
+
+    virtual void RotationUpdate(float AngleForThisFrame) =0;
+
+    void InterpolateRotation(float DeltaTimeSeconds)
+    {
+        if(Timer > 0.f) // currently rotating
+        {
+            if(Timer < DeltaTimeSeconds)
             {
-                static bool AttackTriggered;
+                DeltaTimeSeconds = Timer;
+                OrientationCurrent = OrientationTarget;
+                Timer = 0.f;
+                State = DAS_AwaitingControl;
 
-                if(AttackTimer < DeltaTimeSeconds)
+                RotationDoneUpdate(RotationDirection);
+            }
+            else
+            {
+                Timer -= DeltaTimeSeconds;
+            }
+
+            float DegreesToRotatePerSecond = 90.f/RotationTimerResetValue;
+            float AngleForThisFrame = DegreesToRotatePerSecond * DeltaTimeSeconds;
+
+            if((AmountRotated + AngleForThisFrame) > 90.f)
+            {
+                AngleForThisFrame = 90 - AmountRotated;
+            }
+
+            if(RotationDirection == RD_Left)
+            {
+                AngleForThisFrame = -AngleForThisFrame;
+            }
+
+            AmountRotated += AngleForThisFrame;
+
+            // used for player camera update / enemy rotation
+            RotationUpdate(AngleForThisFrame);
+        }
+    }
+
+    void InterpolateAttack(float DeltaTimeSeconds)
+    {
+        if(Timer > 0.f) // currently attacking
+        {
+            static bool AttackTriggered;
+
+            if(Timer < DeltaTimeSeconds)
+            {
+                DeltaTimeSeconds = Timer;
+                Timer = 0.f;
+                AttackTriggered = false;
+                AttackAnimationReset();
+                State = DAS_AwaitingControl;
+            }
+            else
+            {
+                Timer -= DeltaTimeSeconds;
+            }
+
+            AttackAnimationStep(DeltaTimeSeconds);
+
+            if(   !AttackTriggered
+               && (Timer <= (AttackTimerResetValue*0.5f)) )
+            {
+                AttackTriggered = true;
+
+                for(unsigned int EntityIndex = 0;
+                    EntityIndex < ArrayCount(GameStateRef->Entities);
+                    ++EntityIndex)
                 {
-                    DeltaTimeSeconds = AttackTimer;
-                    AttackTimer = 0.f;
-                    AttackTriggered = false;
-                    AttackAnimationReset();
-                    IsIdle = true;
-                }
-                else
-                {
-                    AttackTimer -= DeltaTimeSeconds;
-                }
-
-                AttackAnimationStep(DeltaTimeSeconds);
-
-                if(   !AttackTriggered
-                   && (AttackTimer <= (AttackTimerResetValue*0.5f)) )
-                {
-                    AttackTriggered = true;
-
-                    for(unsigned int EntityIndex = 0;
-                        EntityIndex < ArrayCount(GameStateRef->Entities);
-                        ++EntityIndex)
+                    DungeonActor *a = *(GameStateRef->Entities + EntityIndex);
+                    if(    a
+                       && (a->Hitpoints > 0)
+                       && (a != this) )
                     {
-                        DungeonActor *a = *(GameStateRef->Entities + EntityIndex);
-                        if(    a
-                           && (a->Hitpoints > 0)
-                           && (a != this) )
+                        if(a->TilePosCurrent == this->AttackTargetTile)
                         {
-                            if(a->TilePosCurrent == this->AttackTargetTile)
-                            {
-                                a->ApplyDamage(1);
-                            }
+                            a->ApplyDamage(1);
                         }
                     }
                 }
@@ -460,20 +525,28 @@ public:
         }
     }
 
+    void Wait(float DeltaTime)
+    {
+        // only used by AI
+        Timer -= DeltaTime;
+        if(Timer < 0)
+        {
+            Timer = 0;
+            State = DAS_AwaitingControl;
+        }
+    }
+
     Drawable *ActorModel;
 
-protected:
     QElapsedTimer DeltaTimer;
-    float MoveTimer;
+    float Timer;
     float MoveTimerResetValue;
-    float RotationTimer;
     float RotationTimerResetValue;
-    float AttackTimer;
     float AttackTimerResetValue;
     float AmountMoved;
     float AmountRotated;
-    bool IsIdle;
     int Hitpoints;
+    dungeon_actor_state State;
     v2i TilePosCurrent;
     v2i TilePosTarget;
     v2i OrientationCurrent;
@@ -534,6 +607,12 @@ public:
 
     }
 
+    virtual void RotationUpdate(float AngleForThisFrame) override
+    {
+        // TODO(andreas): Move PlayerCam into Player
+        GameStateRef->PlayerCam->rotate(AngleForThisFrame, 0.f, 0.f);
+    }
+
     virtual void RotationDoneUpdate(rotation_directions Direction) override
     {
         float Angle = (Direction == RD_Left) ? 90.f : -90.f ;
@@ -573,11 +652,100 @@ public:
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
     {
         Hitpoints = ENEMY_HITPOINTS;
+        LastKnownPlayerPosition = {-1, -1};
+        WaitTimerResetValue = 3.0f;
+        PreviousChoice = 0;
     }
 
     void Control() override
     {
+        if(State == DAS_AwaitingControl)
+        {
+            // test if player is in sight
+            bool PlayerInSight = false;
+            int DistanceToPlayer = 0;
+            v2i TestPosition = {};
+            for(TestPosition = TilePosCurrent + OrientationCurrent;
+                   (TestPosition.x >= 0)
+                && (TestPosition.x  < GameStateRef->LevelWidth)
+                && (TestPosition.y >= 0)
+                && (TestPosition.y  < GameStateRef->LevelWidth);
+                TestPosition += OrientationCurrent,
+                ++DistanceToPlayer)
+            {
+                char *c = GameStateRef->LevelMap + TestPosition.y*GameStateRef->LevelWidth + TestPosition.x;
+                if(*c == ' ')
+                {
+                    break;
+                }
+                if(TestPosition == GameStateRef->Player->TilePosCurrent)
+                {
+                    PlayerInSight = true;
+                    LastKnownPlayerPosition = {-1, -1};
+                    break;
+                }
+            }
 
+            if(PlayerInSight)
+            {
+                if(DistanceToPlayer == 0) // player in attack range
+                {
+                    Attack();
+                }
+                else
+                {
+                    Move(MD_Forward);
+                }
+            }
+            else // player not in sight
+            {
+                // move towards last known player position
+                if(   (LastKnownPlayerPosition != TilePosCurrent)
+                   && (LastKnownPlayerPosition.x != -1)
+                   && (LastKnownPlayerPosition.y != -1) ) // player is visible
+                {
+                    Move(MD_Forward);
+                }
+                else // is at last known player position, or player hasn't been seen yet
+                {
+                    if(State != DAS_Waiting)
+                    {
+                        int Choice;
+                        if(PreviousChoice > 0)
+                        {
+                            Choice = 0;
+                        }
+                        else
+                        {
+                            Choice = rand() % 3;
+                        }
+                        PreviousChoice = Choice;
+
+                        switch(Choice)
+                        {
+                            case 0:
+                            {
+                                State = DAS_Waiting;
+                                Timer = WaitTimerResetValue;
+                            } break;
+
+                            case 1:
+                            {
+                                Rotate(RD_Left);
+                            } break;
+
+                            case 2:
+                            {
+                                Rotate(RD_Right);
+                            } break;
+
+                            default:
+                            { } break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void Die() override
@@ -586,6 +754,11 @@ public:
         {
             ActorModel->setEnabled(false);
         }
+    }
+
+    virtual void RotationUpdate(float AngleForThisFrame) override
+    {
+        rotate(AngleForThisFrame, 0.f, 1.f, 0.f);
     }
 
     virtual void RotationDoneUpdate(rotation_directions Direction) override
@@ -602,6 +775,11 @@ public:
     {
 
     }
+
+protected:
+    v2i LastKnownPlayerPosition;
+    float WaitTimerResetValue;
+    int PreviousChoice = 0;
 };
 
 #endif // DUNGEON_H
