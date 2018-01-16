@@ -8,6 +8,8 @@
 #include "camera.h"
 #include "scenemanager.h"
 #include "transformation.h"
+#include "audioengine.h"
+#include "soundsource.h"
 
 // dungeon includes
 #include "debug_camera.h"
@@ -89,6 +91,16 @@ enum dungeon_actor_state
     DAS_AwaitingControl
 };
 
+enum sound_effects
+{
+    SFX_Step,
+    SFX_Attack,
+    SFX_TakeDamage,
+    SFX_Die,
+
+    SFX_NUM_SOUND_EFFECTS
+};
+
 class DungeonActor;
 struct game_state
 {
@@ -112,6 +124,14 @@ struct game_state
         };
         DungeonActor *Entities[6];
     };
+    SoundFile *Sound_PlayerStep;
+    SoundFile *Sound_PlayerAttack;
+    SoundFile *Sound_PlayerTakeDamage;
+    SoundFile *Sound_PlayerDie;
+    SoundFile *Sound_EnemyStep;
+    SoundFile *Sound_EnemyAttack;
+    SoundFile *Sound_EnemyTakeDamage;
+    SoundFile *Sound_EnemyDie;
 };
 
 v2i operator +(v2i A, v2i B)
@@ -202,6 +222,17 @@ public:
           GameStateRef(GameState)
     {
         this->translate(PosX*TILE_LENGTH, DistanceFromFloor, PosY*TILE_LENGTH); // set initial position
+    }
+
+    ~DungeonActor()
+    {
+        for(int Index = 0; Index < SFX_NUM_SOUND_EFFECTS; ++Index)
+        {
+            if(Sounds[Index])
+            {
+                delete Sounds[Index];
+            }
+        }
     }
 
     bool Move(move_directions MoveDirection)
@@ -554,6 +585,7 @@ public:
     v2i MovementDirection;
     v2i AttackTargetTile;
     rotation_directions RotationDirection;
+    SoundSource *Sounds[SFX_NUM_SOUND_EFFECTS];
     game_state *GameStateRef;
 };
 
@@ -566,6 +598,14 @@ public:
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
     {
         Hitpoints = PLAYER_HITPOINTS;
+
+        // setup audio
+# if 0
+        Sounds[SFX_Step]       = new SoundSource(GameStateRef->Sound_PlayerStep);
+        Sounds[SFX_Attack]     = new SoundSource(GameStateRef->Sound_PlayerAttack);
+        Sounds[SFX_TakeDamage] = new SoundSource(GameStateRef->Sound_PlayerTakeDamage);
+        Sounds[SFX_Die]        = new SoundSource(GameStateRef->Sound_PlayerDie);
+# endif
     }
 
     void Control() override
@@ -655,6 +695,14 @@ public:
         LastKnownPlayerPosition = {-1, -1};
         WaitTimerResetValue = 3.0f;
         PreviousChoice = 0;
+
+        // setup audio
+#if 0
+        Sounds[SFX_Step]       = new SoundSource(GameStateRef->Sound_EnemyStep);
+        Sounds[SFX_Attack]     = new SoundSource(GameStateRef->Sound_EnemyAttack);
+        Sounds[SFX_TakeDamage] = new SoundSource(GameStateRef->Sound_EnemyTakeDamage);
+        Sounds[SFX_Die]        = new SoundSource(GameStateRef->Sound_EnemyDie);
+#endif
     }
 
     void Control() override
