@@ -207,6 +207,12 @@ v2i operator -(v2i &A)
 #define ENEMY_HITPOINTS   5
 class DungeonActor : public Transformation, public IdleObserver
 {
+signals:
+    void TookDamage(int Amount)
+    {
+
+    }
+
 public:
     DungeonActor(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
         : Timer(0.f),
@@ -393,6 +399,8 @@ public:
     void ApplyDamage(int Damage)
     {
         Sounds[SFX_TakeDamage]->play();
+
+        TookDamage(Damage);
 
         Hitpoints -= Damage;
         if(Hitpoints <= 0)

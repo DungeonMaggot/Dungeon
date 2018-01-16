@@ -29,83 +29,8 @@
 static game_state GameState;
 static game_button *ButtonState[2];
 
-bool PlaceColumnAtPos(int X, int Y,
-                      wall_directions WallDirection,
-                      relative_column_position ColumnPosition,
-                      bool *ColumnMap,
-                      int ColumnMapWidth, int ColumnMapHeight)
-{
-    bool Result = false;
 
-    if(    (X >= 0) && (X < (ColumnMapWidth  - 1))
-        && (Y >= 0) && (Y < (ColumnMapHeight - 1))
-        && (WallDirection  < NUM_WALL_DIRECTIONS)
-        && (ColumnPosition < NUM_RELATIVE_COLUMN_POSITIONS) )
-    {
-        bool *Column = ColumnMap + Y*ColumnMapHeight + X;
-
-        // There are four possible offset values (a to d),
-        // depending on the column's corner position:
-        //      N
-        //    L   R
-        //  R a---b L
-        // W  |   |  E
-        //  L c---d R
-        //    R   L
-        //      S
-        enum offset_types
-        {
-            OFFSET_NW = 0, // a
-            OFFSET_NE,     // b
-            OFFSET_SE,     // c
-            OFFSET_SW,     // d
-
-            NUM_OFFSETS
-        } OffsetType;
-        int OffsetValues[NUM_OFFSETS] = {};
-        OffsetValues[OFFSET_NW] = 0;
-        OffsetValues[OFFSET_NE] = 1;
-        OffsetValues[OFFSET_SE] = ColumnMapWidth;
-        OffsetValues[OFFSET_SW] = ColumnMapWidth + 1;
-        switch(WallDirection)
-        {
-            case WALL_WEST:
-            {
-                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_SE : OFFSET_NW;
-            } break;
-
-            case WALL_EAST:
-            {
-                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_NE : OFFSET_SW;
-            } break;
-
-            case WALL_SOUTH:
-            {
-                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_SW : OFFSET_SE;
-            } break;
-
-            case WALL_NORTH:
-            {
-                OffsetType = (ColumnPosition == COL_LEFT) ? OFFSET_NW : OFFSET_NE;
-            } break;
-
-            default:
-            {} break; // TODO(andreas): Handle error.
-        }
-
-        Column += OffsetValues[OffsetType];
-
-        if(*Column == false)
-        {
-            *Column = true;
-            Result = true;
-        }
-    }
-
-    return Result;
-}
-
-Node *InitDungeonScene();
+Node *InitDungeonScene(Ui_FPSWidget *);
 
 void SceneManager::initScenes()
 {
@@ -116,7 +41,7 @@ void SceneManager::initScenes()
     DebugCamera *DebugCam  = new DebugCamera();
     RenderingContext *myContext=new RenderingContext(PlayerCam);
     unsigned int myContextNr = SceneManager::instance()->addContext(myContext);
-    unsigned int myScene = SceneManager::instance()->addScene(InitDungeonScene());
+    unsigned int myScene = SceneManager::instance()->addScene(InitDungeonScene(lDock));
     ScreenRenderer *myRenderer = new ScreenRenderer(myContextNr, myScene);
 
     //Cam offset of the Pirot Point
@@ -141,7 +66,7 @@ void SceneManager::initScenes()
     QObject::connect(Window::getInstance(), SIGNAL(sigFPS(int)), lDock->lcdNumber, SLOT(display(int)));
 }
 
-Node *InitDungeonScene()
+Node *InitDungeonScene(Ui_FPSWidget *UI)
 {
     //
     // game init
@@ -217,6 +142,7 @@ Node *InitDungeonScene()
 
             Geometry *WeaponGeometry = new SimpleCube(.1f, 1.f, .1f);
             Drawable *WeaponModel = new Drawable(WeaponGeometry);
+            WeaponModel->setEnabled(false);
             c = WeaponModel->getProperty<Color>();
             c->setValue(0.4, 0.4, 0.4, 1.0);
             Node *WeaponPivotNode = new Node(p->WeaponPivot);
@@ -224,6 +150,11 @@ Node *InitDungeonScene()
             WeaponNode->addChild(new Node(WeaponModel));
             WeaponPivotNode->addChild(WeaponNode);
             PlayerNode->addChild(WeaponPivotNode);
+
+            //
+            // UI init
+            //
+            // connect(*p, &Player::TookDamage, UI->hitpointsLabel, &QLabel::setNum);
         }
 
         // player light source
@@ -236,6 +167,7 @@ Node *InitDungeonScene()
         PlayerNode->addChild(new Node(PlayerLight));
     }
     RootNode->addChild(PlayerNode);
+
     //
     // dungeon actors - enemies
     //
@@ -530,35 +462,6 @@ Node *InitDungeonScene()
                         TileNode->addChild(WallNode);
                         WallNode->addChild(new Node(WallModel));
                         WallNode->addChild(new Node(ColumnModel));
-
-#if 0
-                        // add columns to the wall, if necessary
-                        bool MustPlaceColumn[NUM_RELATIVE_COLUMN_POSITIONS] = {};
-                        for(int ColumnIndex = 0; ColumnIndex < NUM_RELATIVE_COLUMN_POSITIONS; ++ColumnIndex)
-                        {
-                            MustPlaceColumn[ColumnIndex] =
-                                PlaceColumnAtPos(p.x, p.y,
-                                                 (wall_directions)WallIndex, (relative_column_position) ColumnIndex,
-                                                 Level0ColumnMap, (LEVEL_0_WIDTH + 1), (LEVEL_0_HEIGHT + 1));
-                            // TODO(andreas): Better function name, function is checking slot and potentially marking
-                            //                it as in use.
-
-                            // place column geometry
-                            if(MustPlaceColumn[ColumnIndex])
-                            {
-                                Transformation *ColumnTransform = new Transformation();
-                                Node *ColumnNode = new Node(ColumnTransform);
-                                WallNode->addChild(ColumnNode);
-
-                                if(ColumnIndex == COL_LEFT)
-                                {
-                                    ColumnTransform->rotate(90.0, 0.0, 1.0, 0.0);
-                                }
-
-                                ColumnNode->addChild(new Node(ColumnModel));
-                            }
-                        }
-#endif
                     }
                 }
                 //adds props
