@@ -175,14 +175,12 @@ Node *InitDungeonScene()
     AmbientSound->play();
 
     GameState.Sound_PlayerStep       = new SoundFile("sounds/player_step.wav");
-#if 0
+#if 1
     GameState.Sound_PlayerAttack     = new SoundFile("sounds/attack_slash_1.wav");
-    GameState.Sound_PlayerTakeDamage = new SoundFile("sounds/player_take_damage.wav");
-    GameState.Sound_PlayerDie        = new SoundFile("sounds/player_die.wav");
+    GameState.Sound_PlayerTakeDamage = new SoundFile("sounds/player_take_damage_1.wav");
     GameState.Sound_EnemyStep        = new SoundFile("sounds/enemy_step.wav");
-    GameState.Sound_EnemyAttack      = new SoundFile("sounds/attack_slash.wav");
-    GameState.Sound_EnemyTakeDamage  = new SoundFile("sounds/enemy_take_damage.wav");
-    GameState.Sound_EnemyDie         = new SoundFile("sounds/enemy_die.wav");
+    GameState.Sound_EnemyAttack      = new SoundFile("sounds/attack_slash_1.wav");
+    GameState.Sound_EnemyTakeDamage  = new SoundFile("sounds/enemy_take_damage_1.wav");
 # endif
 
     //

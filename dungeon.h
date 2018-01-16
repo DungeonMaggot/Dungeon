@@ -96,7 +96,6 @@ enum sound_effects
     SFX_Step,
     SFX_Attack,
     SFX_TakeDamage,
-    SFX_Die,
 
     SFX_NUM_SOUND_EFFECTS
 };
@@ -230,6 +229,7 @@ public:
         {
             if(Sounds[Index])
             {
+                Sounds[Index]->stop();
                 delete Sounds[Index];
             }
         }
@@ -335,6 +335,11 @@ public:
         return Result;
     }
 
+    virtual void MoveStartEvent()
+    {
+        Sounds[SFX_Step]->play();
+    }
+
     bool Rotate(rotation_directions Direction)
     {
         bool Result = false;
@@ -369,6 +374,8 @@ public:
         // check if attacking is currently allowed
         if(State == DAS_AwaitingControl)
         {
+            Sounds[SFX_Attack]->play();
+
             State = DAS_Attacking;
             Timer = AttackTimerResetValue;
 
@@ -385,6 +392,8 @@ public:
 
     void ApplyDamage(int Damage)
     {
+        Sounds[SFX_TakeDamage]->play();
+
         Hitpoints -= Damage;
         if(Hitpoints <= 0)
         {
@@ -600,11 +609,10 @@ public:
         Hitpoints = PLAYER_HITPOINTS;
 
         // setup audio
-# if 0
+# if 1
         Sounds[SFX_Step]       = new SoundSource(GameStateRef->Sound_PlayerStep);
         Sounds[SFX_Attack]     = new SoundSource(GameStateRef->Sound_PlayerAttack);
         Sounds[SFX_TakeDamage] = new SoundSource(GameStateRef->Sound_PlayerTakeDamage);
-        Sounds[SFX_Die]        = new SoundSource(GameStateRef->Sound_PlayerDie);
 # endif
     }
 
@@ -697,11 +705,10 @@ public:
         PreviousChoice = 0;
 
         // setup audio
-#if 0
+#if 1
         Sounds[SFX_Step]       = new SoundSource(GameStateRef->Sound_EnemyStep);
         Sounds[SFX_Attack]     = new SoundSource(GameStateRef->Sound_EnemyAttack);
         Sounds[SFX_TakeDamage] = new SoundSource(GameStateRef->Sound_EnemyTakeDamage);
-        Sounds[SFX_Die]        = new SoundSource(GameStateRef->Sound_EnemyDie);
 #endif
     }
 
