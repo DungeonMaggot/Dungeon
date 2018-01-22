@@ -58,12 +58,14 @@ void SceneManager::initScenes()
     GameState.PlayerCam = PlayerCam;
     GameState.DebugCam = DebugCam;
 
+#if 0
     lDock = new Ui_FPSWidget();
     lDock->setupUi(lDockWidget);
     lDockWidget->resize(200,100);
     SceneManager::getMainWindow()->addDockWidget(Qt::RightDockWidgetArea, lDockWidget);
     lDockWidget->show();
     QObject::connect(Window::getInstance(), SIGNAL(sigFPS(int)), lDock->lcdNumber, SLOT(display(int)));
+#endif
 }
 
 Node *InitDungeonScene(Ui_FPSWidget *UI)
@@ -99,14 +101,12 @@ Node *InitDungeonScene(Ui_FPSWidget *UI)
     AmbientSound->setLooping(true);
     AmbientSound->play();
 
-    GameState.Sound_PlayerStep       = new SoundFile("sounds/player_step.wav");
-#if 1
+    GameState.Sound_PlayerStep       = new SoundFile("sounds/player_step_1.wav");
     GameState.Sound_PlayerAttack     = new SoundFile("sounds/attack_slash_1.wav");
     GameState.Sound_PlayerTakeDamage = new SoundFile("sounds/player_take_damage_1.wav");
-    GameState.Sound_EnemyStep        = new SoundFile("sounds/enemy_step.wav");
+    GameState.Sound_EnemyStep        = new SoundFile("sounds/enemy_step_1.wav");
     GameState.Sound_EnemyAttack      = new SoundFile("sounds/attack_slash_1.wav");
     GameState.Sound_EnemyTakeDamage  = new SoundFile("sounds/enemy_take_damage_1.wav");
-# endif
 
     //
     // shaders
@@ -175,6 +175,17 @@ Node *InitDungeonScene(Ui_FPSWidget *UI)
     GameState.Enemies[0] = new Megaskull(1, 4, // start position (tile coordinates, negative y is north)
                                          0.25,     // distance from floor (affects model)
                                          0, 1, // intial orientation, negative y is "up" on the map
+                                         true, // rotates when idle
+                                         &GameState);
+    GameState.Enemies[1] = new Megaskull(4, 0, // start position (tile coordinates, negative y is north)
+                                         0.25,     // distance from floor (affects model)
+                                         0, 1, // intial orientation, negative y is "up" on the map
+                                         false, // does not rotate when idle
+                                         &GameState);
+    GameState.Enemies[2] = new Megaskull(9, 1, // start position (tile coordinates, negative y is north)
+                                         0.25,     // distance from floor (affects model)
+                                         0, 1, // intial orientation, negative y is "up" on the map
+                                         true, // does not rotate when idle
                                          &GameState);
 #endif
     // setup enemy graphics and SG nodes

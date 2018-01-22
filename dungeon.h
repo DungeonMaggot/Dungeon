@@ -327,6 +327,7 @@ public:
 
                     if(!MoveBlockedByEntity)
                     {
+                        MoveStartEvent();
                         State = DAS_Moving;
                         AmountMoved = 0.f;
                         this->TilePosTarget = TargetPosCandidate;
@@ -601,6 +602,7 @@ public:
     v2i OrientationTarget;
     v2i MovementDirection;
     v2i AttackTargetTile;
+    bool IdleRotationBehavior;
     rotation_directions RotationDirection;
     SoundSource *Sounds[SFX_NUM_SOUND_EFFECTS];
     game_state *GameStateRef;
@@ -704,13 +706,14 @@ public:
 class Megaskull : public DungeonActor
 {
 public:
-    Megaskull(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, game_state *GameState)
+    Megaskull(int PosX, int PosY, float DistanceFromFloor, int OrientationX, int OrientationY, bool IdleRotation, game_state *GameState)
         : DungeonActor(PosX, PosY, DistanceFromFloor, OrientationX, OrientationY, GameState)
     {
         Hitpoints = ENEMY_HITPOINTS;
         LastKnownPlayerPosition = {-1, -1};
         WaitTimerResetValue = 3.0f;
         PreviousChoice = 0;
+        IdleRotationBehavior = IdleRotation;
 
         // setup audio
 #if 1
@@ -773,16 +776,20 @@ public:
                 {
                     if(State != DAS_Waiting)
                     {
-                        int Choice;
-                        if(PreviousChoice > 0)
+                        int Choice = 0;
+
+                        if(IdleRotationBehavior)
                         {
-                            Choice = 0;
+                            if(PreviousChoice > 0)
+                            {
+                                Choice = 0;
+                            }
+                            else
+                            {
+                                Choice = rand() % 3;
+                            }
+                            PreviousChoice = Choice;
                         }
-                        else
-                        {
-                            Choice = rand() % 3;
-                        }
-                        PreviousChoice = Choice;
 
                         switch(Choice)
                         {
